@@ -110,28 +110,24 @@ void threadFlow(){
 	//MAP
 
 		// check atomic for new items to be mapped (k1v1)
-
-		// map the items
-
-		// emit the mapped items (k2v2)
+        // pull a pair
+		// use emit (with context !) to map the items to this thread's own ind vector
 
 	// SORT
 
-		// sort the items
-
-		// emit the sorted items (k2v2) (?)
+		// sort the items within this threads indvec
 
 	// BARRIER
 
 		// get to the barrier
-		// wait
+		// wait for main thread to tell me to keep going
 
 
 	// Reduce
 
-		// wait for new items to be come available
-
-		// make output itemp (k3v3)
+		// wait for new K2-specific vectors to become available
+        // pull a vector
+        // use emit (with context !) to map the items to this thread's own ind vector
 
 
 }
@@ -141,7 +137,8 @@ void mainFlow(){
 }
 
 void noThreads(data &stuff){ //todo remove
-  //MAP
+
+  //// Map
 
   // check atomic for new items to be mapped (k1v1)
 
@@ -152,17 +149,15 @@ void noThreads(data &stuff){ //todo remove
 
   // emit the mapped items (k2v2) //todo N: emitted by client map func.
 
-  // SORT
+  ///// Sort
 
   // sort the items
   std::sort(stuff.indVec.begin(), stuff.indVec.end());
 
-
-
-
+  //// Shuffle
     shuffle(stuff);
 
-  // Reduce
+  //// Reduce
   for(IntermediateVec& vec: stuff.vecVec){
     stuff.client.reduce(&vec,&stuff);
   }
