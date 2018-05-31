@@ -4,6 +4,8 @@
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
 
+//todo maybe implement data struct as class (instance created for each call to framework?)
+
 
 //// ============================   defines and const ==============================================
 
@@ -24,6 +26,7 @@ struct data
   const MapReduceClient& client;
   const InputVec& inputVec;
   IntermediateVec& indVec;
+  std::vector<IntermediateVec>& vecVec;
   OutputVec& outputVec;
 
   data(int lvl,
@@ -33,6 +36,7 @@ struct data
       client(client),
       inputVec(inputVec),
       indVec(),
+      vecVec(),
       outputVec(outputVec)
       //multiThreadLevel(lvl)
   {}
@@ -43,6 +47,7 @@ struct data
 
 void threadFlow();
 void mainFlow();
+void shuffle();
 
 void noThreads(data &stuff);
 
@@ -132,7 +137,7 @@ void threadFlow(){
 }
 
 void mainFlow(){
-	//todo same as thread flow, but with additional control segments
+	// same as thread flow, but with additional control segments
 }
 
 void noThreads(data &stuff){ //todo remove
@@ -151,6 +156,30 @@ void noThreads(data &stuff){ //todo remove
 
   // sort the items
   std::sort(stuff.indVec.begin(), stuff.indVec.end());
+
+
+
+
+    shuffle(stuff);
+
+  // Reduce
+  for(IntermediateVec& vec: stuff.vecVec){
+    stuff.client.reduce(&vec,&stuff);
+  }
+
+  // wait for new items to be come available
+
+  // make output itemp (k3v3)
+
+}
+bool areEqualK2(K2* a, K2* b){
+
+  // neither a<b nor b<a means a==b
+  return !((a<b)||(b<a));
+}
+
+
+void shuffle(data stuff){
 
 
 //    std::vector<IntermediateVec> vecVec; //todo N test
@@ -181,38 +210,24 @@ void noThreads(data &stuff){ //todo remove
 //        }
 //    }
 
-    std::vector<IntermediateVec> vecVec;
 
-    auto key = stuff.indVec.back().first;
-    IntermediateVec current_key_indVec;
+  std::vector<IntermediateVec> vecVec;
 
-    while (!stuff.indVec.empty()) {
-        auto current = &stuff.indVec.back();
-        stuff.indVec.pop_back();
+  auto key = stuff.indVec.back().first;
+  IntermediateVec current_key_indVec;
 
-        if (areEqualK2(current->first, key)) {
-            current_key_indVec.push_back(*current);
-        } else {
-            vecVec.emplace_back(current_key_indVec);
-            current_key_indVec.clear();
-            key = current->first;
-            current_key_indVec.push_back(*current);
-        }
+  while (!stuff.indVec.empty()) {
+    auto current = &stuff.indVec.back();
+    stuff.indVec.pop_back();
+
+    if (areEqualK2(current->first, key)) {
+      current_key_indVec.push_back(*current);
+    } else {
+      vecVec.emplace_back(current_key_indVec);
+      current_key_indVec.clear();
+      key = current->first;
+      current_key_indVec.push_back(*current);
     }
-
-  // Reduce
-  for(IntermediateVec& vec: vecVec){
-    stuff.client.reduce(&vec,&stuff);
   }
-
-  // wait for new items to be come available
-
-  // make output itemp (k3v3)
-
-}
-bool areEqualK2(K2* a, K2* b){
-
-  // neither a<b nor b<a means a==b
-  return !((a<b)||(b<a));
 }
 
