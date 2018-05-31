@@ -1,5 +1,6 @@
 
 #include <atomic>
+#include <algorithm>
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
 
@@ -11,19 +12,30 @@
 
 //todo struct holding atomic and semaphore
 
-//todo struct holding all inpout and DAST's (?)
-struct data{
-  std::atomic<int>* atomic_counter;
+struct data
+{
+  ////mutexes, semaphors
+  //std::atomic<int>& atomic_counter;
 
-  InputVec* vIn;
-  OutputVec* vOut;
+  ////params
+  //int& multiThreadLevel;
 
-  MapReduceClient& client;
-  InputVec& inputVec;
+  ////data
+  const MapReduceClient& client;
+  const InputVec& inputVec;
   IntermediateVec& indVec;
   OutputVec& outputVec;
-  int& multiThreadLevel;
 
+  data(int lvl,
+       const MapReduceClient& client, const InputVec& inputVec,
+        OutputVec& outputVec) :
+
+      client(client),
+      inputVec(inputVec),
+      indVec(),
+      outputVec(outputVec)
+      //multiThreadLevel(lvl)
+  {}
 };
 
 
@@ -31,10 +43,11 @@ struct data{
 
 void threadFlow();
 void mainFlow();
-void initData();
+
+void noThreads(data &stuff);
 
 
-bool areEqual(K3 a, K3 b);
+bool areEqualK2(K2 *a, K2 *b);
 
 //// ============================ framework functions ==============================================
 
@@ -47,7 +60,7 @@ bool areEqual(K3 a, K3 b);
  */
 void emit2 (K2* key, V2* value, void* context){
     IntermediatePair k2_pair = std::pair(&key, &value);
-    auto * context_pointer = (data *) context;
+    auto * context_pointer = (data*) context;
     context_pointer->indVec.push_back(k2_pair);
 
 }
@@ -59,7 +72,9 @@ void emit2 (K2* key, V2* value, void* context){
  * @param context
  */
 void emit3 (K3* key, V3* value, void* context){
-
+  OutputPair k3_pair = std::pair(&key, &value);
+  auto * context_pointer = (data *) context;
+  context_pointer->outputVec.push_back(k3_pair);
 }
 
 /**
@@ -73,29 +88,17 @@ void runMapReduceFramework(const MapReduceClient& client,
 	const InputVec& inputVec, OutputVec& outputVec,
 	int multiThreadLevel){
 
-  // todo init() (make DAST's ?)
-  data stuff;
-  initData(client,inputVec,outputVec,multiThreadLevel, stuff);
+  // initialise data
+  data stuff(1,client,inputVec, outputVec);
 
+  // call mainFlow()
+  noThreads(stuff);
 
-  // todo call mainFlow()
-
-  // todo finish
+  // finish
 
 }
 
 ////===============================  Helper Functions ==============================================
-
-void initData(const MapReduceClient& client,
-          const InputVec& inputVec, OutputVec& outputVec,
-          int multiThreadLevel, data &stuff){
-  stuff.client = client;
-  stuff.inputVec = inputVec;
-  stuff.outputVec = outputVec;
-  stuff.multiThreadLevel  = multiThreadLevel;
-
-
-}
 
 void threadFlow(){
 
@@ -133,13 +136,12 @@ void mainFlow(){
 }
 
 void noThreads(data &stuff){ //todo remove
-
   //MAP
 
   // check atomic for new items to be mapped (k1v1)
 
   // map the items
-    for (InputPair &k1_pair : stuff.inputVec) {
+    for (const InputPair &k1_pair : stuff.inputVec) {
         stuff.client.map(k1_pair.first, k1_pair.second, &stuff);
     }
 
@@ -148,13 +150,9 @@ void noThreads(data &stuff){ //todo remove
   // SORT
 
   // sort the items
+  std::sort(stuff.indVec.begin(), stuff.indVec.end());
 
-  // emit the sorted items (k2v2) (?)
 
-  // BARRIER
-
-  // get to the barrier
-  // wait
 //    std::vector<IntermediateVec> vecVec; //todo N test
 //
 //    auto key = stuff.indVec.back().first;
@@ -192,27 +190,29 @@ void noThreads(data &stuff){ //todo remove
         auto current = &stuff.indVec.back();
         stuff.indVec.pop_back();
 
-        if (current->first == key) {
+        if (areEqualK2(current->first, key)) {
             current_key_indVec.push_back(*current);
         } else {
-//            IntermediateVec vec = current_key_indVec;
-//            vecVec.push_back(vec);
             vecVec.emplace_back(current_key_indVec);
             current_key_indVec.clear();
             key = current->first;
             current_key_indVec.push_back(*current);
         }
     }
+
   // Reduce
+  for(IntermediateVec& vec: vecVec){
+    stuff.client.reduce(&vec,&stuff);
+  }
 
   // wait for new items to be come available
 
   // make output itemp (k3v3)
 
 }
+bool areEqualK2(K2* a, K2* b){
 
-bool areEqual(K3 &a, K3 &b){
-
-	// neither a<b nor b<a means a==b
-	return !((a<b)||(b<a));
+  // neither a<b nor b<a means a==b
+  return !((a<b)||(b<a));
 }
+

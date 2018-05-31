@@ -111,6 +111,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named client
+
+# Build rule for target.
+client: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 client
+.PHONY : client
+
+# fast build rule for target.
+client/fast:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/build
+.PHONY : client/fast
+
+#=============================================================================
 # Target rules for targets named OS_Ex3
 
 # Build rule for target.
@@ -129,6 +142,7 @@ MapReduceFramework.o: MapReduceFramework.cpp.o
 
 # target to build an object file
 MapReduceFramework.cpp.o:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/MapReduceFramework.cpp.o
 	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/MapReduceFramework.cpp.o
 .PHONY : MapReduceFramework.cpp.o
 
@@ -138,6 +152,7 @@ MapReduceFramework.i: MapReduceFramework.cpp.i
 
 # target to preprocess a source file
 MapReduceFramework.cpp.i:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/MapReduceFramework.cpp.i
 	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/MapReduceFramework.cpp.i
 .PHONY : MapReduceFramework.cpp.i
 
@@ -147,35 +162,36 @@ MapReduceFramework.s: MapReduceFramework.cpp.s
 
 # target to generate assembly for a file
 MapReduceFramework.cpp.s:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/MapReduceFramework.cpp.s
 	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/MapReduceFramework.cpp.s
 .PHONY : MapReduceFramework.cpp.s
 
-main.o: main.cpp.o
+SampleClient.o: SampleClient.cpp.o
 
-.PHONY : main.o
+.PHONY : SampleClient.o
 
 # target to build an object file
-main.cpp.o:
-	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/main.cpp.o
-.PHONY : main.cpp.o
+SampleClient.cpp.o:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SampleClient.cpp.o
+.PHONY : SampleClient.cpp.o
 
-main.i: main.cpp.i
+SampleClient.i: SampleClient.cpp.i
 
-.PHONY : main.i
+.PHONY : SampleClient.i
 
 # target to preprocess a source file
-main.cpp.i:
-	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/main.cpp.i
-.PHONY : main.cpp.i
+SampleClient.cpp.i:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SampleClient.cpp.i
+.PHONY : SampleClient.cpp.i
 
-main.s: main.cpp.s
+SampleClient.s: SampleClient.cpp.s
 
-.PHONY : main.s
+.PHONY : SampleClient.s
 
 # target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/main.cpp.s
-.PHONY : main.cpp.s
+SampleClient.cpp.s:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SampleClient.cpp.s
+.PHONY : SampleClient.cpp.s
 
 # Help Target
 help:
@@ -185,13 +201,14 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
+	@echo "... client"
 	@echo "... OS_Ex3"
 	@echo "... MapReduceFramework.o"
 	@echo "... MapReduceFramework.i"
 	@echo "... MapReduceFramework.s"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
+	@echo "... SampleClient.o"
+	@echo "... SampleClient.i"
+	@echo "... SampleClient.s"
 .PHONY : help
 
 

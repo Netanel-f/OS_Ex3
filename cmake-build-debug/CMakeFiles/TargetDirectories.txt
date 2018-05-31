@@ -1,3 +1,4 @@
 /cs/usr/jherskow/safe/OS_Ex3/cmake-build-debug/CMakeFiles/rebuild_cache.dir
 /cs/usr/jherskow/safe/OS_Ex3/cmake-build-debug/CMakeFiles/edit_cache.dir
+/cs/usr/jherskow/safe/OS_Ex3/cmake-build-debug/CMakeFiles/client.dir
 /cs/usr/jherskow/safe/OS_Ex3/cmake-build-debug/CMakeFiles/OS_Ex3.dir

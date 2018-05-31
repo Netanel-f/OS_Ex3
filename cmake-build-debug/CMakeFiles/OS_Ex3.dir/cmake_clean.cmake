@@ -1,5 +1,4 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/OS_Ex3.dir/main.cpp.o"
   "CMakeFiles/OS_Ex3.dir/MapReduceFramework.cpp.o"
   "OS_Ex3.pdb"
   "OS_Ex3"
