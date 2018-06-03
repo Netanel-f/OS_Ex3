@@ -35,7 +35,7 @@ struct ThreadContext {
 
 void * threadFlow(void * arg);
 void threadReduce(ThreadContext * tc);
-bool areEqualK2(K2 *a, K2 *b);
+bool areEqualK2(K2 &a, K2 &b);
 void check_for_error();
 
 
@@ -111,35 +111,116 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     unsigned long numOfRemainingElementsToShuffle = threadContexts[0].inputVec->size();
 
-    // Looping to create
-    while (numOfRemainingElementsToShuffle > 0) {
-        int keyThreadId = 0;
 
-        // Finding the first not empty thread Intermediate Vector.
-        for (int i = 0; i < multiThreadLevel; i++) {
+    // shuffle
+
+    while (true){
+        // for each key
+        K2 curKeyToMake = {};
+
+        // find max key
+
+        bool allEmptySoFar = true;
+        K2 curMax = {};
+
+        // iterate through thread's vectors
+        for (int i = 0; i < multiThreadLevel ; ++i) {
+
+            //ensure not empty
             if (!threadContexts[i].threadIndVec.empty()) {
-                keyThreadId = i;
+
+                K2 thisKey = *threadContexts[i].threadIndVec.back().first;
+
+                if(allEmptySoFar){
+                    // take max (back)
+                    curMax = thisKey;
+                    allEmptySoFar= false;
+
+                }else if(curMax<thisKey){
+                    // update max if larger
+                    curMax = thisKey;
+                }
+
+            }
+        }
+
+        // if we have not found a non-empty vector - all have been cleared.
+        if(allEmptySoFar) break;
+
+        bool NoneEqualSoFar = true;
+
+        // this is our current key
+        curKeyToMake = curMax;
+
+        // make a vector of this key
+        IntermediateVec curKeyVec;
+
+        while(true) {
+
+            // iterate through thread's vectors
+            for (int i = 0; i < multiThreadLevel; ++i) {
+
+                //ensure not empty
+                if (!threadContexts[i].threadIndVec.empty()) {
+
+                    K2 thisKey = *threadContexts[i].threadIndVec.back().first;
+
+                    if (areEqualK2(thisKey, curKeyToMake)) {
+
+                        NoneEqualSoFar = false;
+
+                        // add it to our vector
+                        curKeyVec.push_back(threadContexts[i].threadIndVec.back());
+                        // erase it from the vector
+                        threadContexts[i].threadIndVec.pop_back();
+
+                    }
+
+                }
+            }
+
+            // if we have found no equal at the back of any vector, we have finished with this key
+            if(NoneEqualSoFar) {
+                //todo send vector to a thread
+
+                // break, and find the next key.
                 break;
-            }
-            //todo N:check if code can reach to the point of the last thread and it's empty.
-        }
 
-        auto key = threadContexts[keyThreadId].threadIndVec.back().first;
-        IntermediateVec currentKeyIndVec = IntermediateVec();
-
-        //todo need to fix the finding equals.
-
-        for (int i = keyThreadId; i < multiThreadLevel; i++) {
-            // Popping matching k2pairs from all thread's vectors.
-
-            while (areEqualK2(threadContexts[i].threadIndVec.back().first, key)) {
-                // Popping matching k2 pairs of current thread with tid i
-
-                currentKeyIndVec.push_back((threadContexts[i].threadIndVec.back()));
-                threadContexts[i].threadIndVec.pop_back();
-                numOfRemainingElementsToShuffle--;
             }
         }
+
+    }
+
+
+        // make
+
+
+
+//        // Finding the first not empty thread Intermediate Vector.
+//        for (int i = 0; i < multiThreadLevel; i++) {
+//            if (!threadContexts[i].threadIndVec.empty()) {
+//                keyThreadId = i;
+//                break;
+//            }
+//            //todo N:check if code can reach to the point of the last thread and it's empty.
+//        }
+//
+//        auto key = threadContexts[keyThreadId].threadIndVec.back().first;
+//        IntermediateVec currentKeyIndVec = IntermediateVec();
+//
+//        //todo need to fix the finding equals.
+//
+//        for (int i = keyThreadId; i < multiThreadLevel; i++) {
+//            // Popping matching k2pairs from all thread's vectors.
+//
+//            while (areEqualK2(threadContexts[i].threadIndVec.back().first, key)) {
+//                // Popping matching k2 pairs of current thread with tid i
+//
+//                currentKeyIndVec.push_back((threadContexts[i].threadIndVec.back()));
+//                threadContexts[i].threadIndVec.pop_back();
+//                numOfRemainingElementsToShuffle--;
+//            }
+//        }
 
         barrier.reducelock();   // blocking the mutex
 
@@ -246,7 +327,7 @@ void threadFlowORIG(){
 
 }
 
-bool areEqualK2(K2* a, K2* b){
+bool areEqualK2(K2& a, K2& b){
 
   // neither a<b nor b<a means a==b
   return !((a<b)||(b<a));
