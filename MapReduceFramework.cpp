@@ -179,9 +179,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                 barrier.shuffleLock();   // blocking the mutex
 
                 // feeding shared vector and increasing semaphore.
-                threadContexts[0].shuffleVector->push_back(curKeyVec);
+                threadContexts[0].shuffleVector->push_back(curKeyVec); //todo J why zero?
 
-                sem_post(threadContexts[0].semaphore_arg);
+                sem_post(threadContexts[0].semaphore_arg);  //todo J why zero?
 
                 barrier.shuffleUnlock(); // unblock mutex
 
