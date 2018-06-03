@@ -18,6 +18,7 @@ struct ThreadContext {
     int threadID;
     const MapReduceClient* client;
     const InputVec* inputVec;
+    outputVec* outputVec;
     std::atomic<int>* atomic_counter;
     sem_t * semaphore_arg;
     Barrier* barrier;
@@ -115,7 +116,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     for (int i = 0; i < multiThreadLevel; ++i) {
         IntermediateVec vec = IntermediateVec();
-        threadContexts[i] = {i, client, inputVec, &atomic_counter, &sem, &barrier, &vec, &shufVec};
+        threadContexts[i] = {i, client, inputVec, outputVec, &atomic_counter, &sem, &barrier, &vec, &shufVec};
     }
 
     for (int i = 1; i < multiThreadLevel; ++i) {
@@ -130,6 +131,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     threadFlow1(threadContexts);
 
     //threadContexts[0].barrier->barrier(); //Happens on threadFlow. letting now main thread arrived at the barrier
+
+    // init atomic to track output vec
+    threadContexts[0].atomic_counter=0;
 
     //shuffle
     int numOfNonEmptyThreadVec = multiThreadLevel;
@@ -219,13 +223,18 @@ void * tReduce(void * arg) {
 
     //reducing
     bool keepReduce = true;
-    while (keepReduce) {
+    while (keepReduce) {    //todo check properly
         tc->barrier->reducelock();
-        //todo make reduce
-        for(IntermediateVec& tVec: *(tc->shuffleVector)) {
 
+        //todo create independent output mutex lock.
+        int old_atom = (*(tc->atomic_counter))++;
+        if (old_atom < tc->inputVec->size()) {
+            tc->client->reduce(tc->shuffleVector->pop_back(), tc);
+            tc->barrier->reduceUnlock();
+        } else {
+            tc->barrier->reduceUnlock();
+            break;
         }
-        tc->barrier->reduceUnlock();
     }
 }
 
