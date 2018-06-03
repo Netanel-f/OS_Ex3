@@ -68,7 +68,7 @@ void Barrier::barrier()
 	}
 }
 
-void Barrier::shufflelock() {
+void Barrier::shuffleLock() {
     if (pthread_mutex_lock(&shuffleMutex) != 0) {
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_lock");
         exit(1);
@@ -84,22 +84,22 @@ void Barrier::shuffleUnlock() {
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_unlock");
         exit(1);
     }
+}
 
-    void Barrier::reduceLock() {
-        if (pthread_mutex_lock(&reduceMutex) != 0) {
-            fprintf(stderr, "[[Barrier]] error on pthread_mutex_lock");
-            exit(1);
-        }
+void Barrier::reduceLock() {
+    if (pthread_mutex_lock(&reduceMutex) != 0) {
+        fprintf(stderr, "[[Barrier]] error on pthread_mutex_lock");
+        exit(1);
     }
+}
 
-    void Barrier::reduceUnlock() {
-        if (pthread_cond_broadcast(&reduceCv) != 0) {
-            fprintf(stderr, "[[Barrier]] error on pthread_cond_broadcast");
-            exit(1);
-        }
-        if (pthread_mutex_unlock(&reduceMutex) != 0) {
-            fprintf(stderr, "[[Barrier]] error on pthread_mutex_unlock");
-            exit(1);
-        }
+void Barrier::reduceUnlock() {
+    if (pthread_cond_broadcast(&reduceCv) != 0) {
+        fprintf(stderr, "[[Barrier]] error on pthread_cond_broadcast");
+        exit(1);
+    }
+    if (pthread_mutex_unlock(&reduceMutex) != 0) {
+        fprintf(stderr, "[[Barrier]] error on pthread_mutex_unlock");
+        exit(1);
     }
 }

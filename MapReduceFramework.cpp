@@ -47,7 +47,7 @@ void check_for_error();
  * @param context
  */
 void emit2 (K2* key, V2* value, void* context){
-    ThreadContext * tc = (auto) context;
+    auto tc = (ThreadContext *) context;
     IntermediatePair k2_pair = std::pair(&key, &value);
     tc->threadIndVec.push_back(k2_pair);    // todo check mem-leaks.
 }
@@ -61,7 +61,7 @@ void emit2 (K2* key, V2* value, void* context){
 void emit3 (K3* key, V3* value, void* context){
     OutputPair k3_pair = std::pair(&key, &value);
     auto * tc = (ThreadContext *) context;
-    tc->barrier->reducelock();
+    tc->barrier->reduceLock();
     tc->outputVec->push_back(k3_pair);
     tc->barrier->reduceUnlock();
 }
@@ -180,7 +180,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             if(NoneEqualSoFar) {
                 //todo send vector to a thread
 
-                barrier.shufflelock();   // blocking the mutex
+                barrier.shuffleLock();   // blocking the mutex
 
                 // feeding shared vector and increasing semaphore.
                 threadContexts[0].shuffleVector->push_back(curKeyVec);
@@ -247,7 +247,7 @@ void threadReduce(ThreadContext * tc) {
     //reducing
     bool shouldContinueReducing = true;
     while (shouldContinueReducing) {        //todo check properly
-        tc->barrier->shufflelock();
+        tc->barrier->shuffleLock();
 
         int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < (tc->inputVec->size())) {

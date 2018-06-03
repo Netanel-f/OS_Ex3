@@ -9,9 +9,9 @@ public:
 	Barrier(int numThreads);
 	~Barrier();
 	void barrier();
-	void shufflelock();
+	void shuffleLock();
     void shuffleUnlock();
-    void reducelock();
+    void reduceLock();
 	void reduceUnlock();
 
 private:
