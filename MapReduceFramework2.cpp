@@ -7,8 +7,6 @@
 #include "MapReduceFramework.h"
 #include "Barrier.h"
 
-//todo maybe implement data struct as class (instance created for each call to framework?)
-
 
 //// ============================   defines and const ==============================================
 
@@ -64,7 +62,7 @@ void emit3 (K3* key, V3* value, void* context){
     OutputPair k3_pair = std::pair(&key, &value);
     auto * tc = (ThreadContext *) context;
     tc->barrier->reducelock();
-    tc->outputVec->push_back(k3_pair); //todo create independent output mutex lock.
+    tc->outputVec->push_back(k3_pair);
     tc->barrier->reduceUnlock();
 }
 
@@ -87,7 +85,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
 
     // init semaphore so other threads would wait to it.
-    sem_t * sem;  //todo destory at end.
+    sem_t * sem;
     int semInitValue = sem_init(sem, 0, 0);    //todo check sem initialization.
     check_for_error(semInitValue, "Failed to initialize semaphore.");
 
@@ -187,43 +185,12 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     }
 
-
-        // make
-
-
-
-//        // Finding the first not empty thread Intermediate Vector.
-//        for (int i = 0; i < multiThreadLevel; i++) {
-//            if (!threadContexts[i].threadIndVec.empty()) {
-//                keyThreadId = i;
-//                break;
-//            }
-//            //todo N:check if code can reach to the point of the last thread and it's empty.
-//        }
-//
-//        auto key = threadContexts[keyThreadId].threadIndVec.back().first;
-//        IntermediateVec currentKeyIndVec = IntermediateVec();
-//
-//        //todo need to fix the finding equals.
-//
-//        for (int i = keyThreadId; i < multiThreadLevel; i++) {
-//            // Popping matching k2pairs from all thread's vectors.
-//
-//            while (areEqualK2(threadContexts[i].threadIndVec.back().first, key)) {
-//                // Popping matching k2 pairs of current thread with tid i
-//
-//                currentKeyIndVec.push_back((threadContexts[i].threadIndVec.back()));
-//                threadContexts[i].threadIndVec.pop_back();
-//                numOfRemainingElementsToShuffle--;
-//            }
-//        }
-
         barrier.reducelock();   // blocking the mutex
 
         // feeding shared vector and increasing semaphore.
         threadContexts[0].shuffleVector->push_back(currentKeyIndVec);
         sem_post(threadContexts[0].semaphore_arg);
-        barrier.reduceUnlock();
+        barrier.shuffleUnlock();
 
     }
 
@@ -277,51 +244,23 @@ void * threadFlow(void * arg) {
 void threadReduce(ThreadContext * tc) {
 
     //reducing
-    bool keepReduce = true;
-    while (keepReduce) {        //todo check properly
-        tc->barrier->reducelock();
+    bool shouldContinueReducing = true;
+    while (shouldContinueReducing) {        //todo check properly
+        tc->barrier->shufflelock();
 
-        //todo create independent output mutex lock.
         int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < (tc->inputVec->size())) {
             std::vector * pairs = &(tc->shuffleVector->back());
             tc->shuffleVector->pop_back();
             tc->client->reduce(pairs, tc);
         } else {
-            keepReduce = false;
+            shouldContinueReducing = false;
         }
-        tc->barrier->reduceUnlock();
+        tc->barrier->shuffleUnlock();
     }
     if (tc->threadID != 0) { pthread_exit(0); }
 }
 
-
-void threadFlowORIG(){
-
-	//MAP
-
-		// check atomic for new items to be mapped (k1v1)
-        // pull a pair
-		// use emit (with context !) to map the items to this thread's own ind vector
-
-	// SORT
-
-		// sort the items within this threads indvec
-
-	// BARRIER
-
-		// get to the barrier
-		// wait for main thread to tell me to keep going
-
-
-	// Reduce
-
-		// wait for new K2-specific vectors to become available
-        // pull a vector
-        // use emit (with context !) to map the items to this thread's own ind vector
-
-
-}
 
 bool areEqualK2(K2& a, K2& b){
 
@@ -329,6 +268,11 @@ bool areEqualK2(K2& a, K2& b){
   return !((a<b)||(b<a));
 }
 
+int exitFramework(ThreadContext * tc) {
+    delete (*(tc->barrier));
+    sem_destroy(tc->semaphore_arg);
+
+}
 ////=================================  Error Function ==============================================
 
 void check_for_error(int & returnVal, const std::string &message) {
