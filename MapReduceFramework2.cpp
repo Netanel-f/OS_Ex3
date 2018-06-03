@@ -1,6 +1,7 @@
 
 #include <atomic>
 #include <algorithm>
+#include <iostream>
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
 #include "Barrier.h"
@@ -124,8 +125,8 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     }
 
     //init semaphore so other threads would wait to it.
-    initValue = sem_init(&sem, 0, 0);
-    //if (initValue() < 0) {} //todo error
+    int initValue = sem_init(&sem, 0, 0);
+    //if (initValue() < 0) {} //todo errorcheck
 
     //main thread shoud map and sort as well.
     threadFlow1(threadContexts);
@@ -361,3 +362,19 @@ void shuffle(data stuff){
   }
 }
 
+////=================================  Error Function ==============================================
+
+void print_error(int & returnVall, const std::string &message) {
+
+  if (returnVall == 0) return;
+
+  // set prefix
+  std::string title = "Library error: ";
+
+  // print error message with prefix
+  std::cerr << title << message << "\n";
+
+  // exit
+  exit(1);  // todo is this what we want?
+
+}

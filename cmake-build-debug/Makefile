@@ -111,6 +111,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named atomic_demo
+
+# Build rule for target.
+atomic_demo: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 atomic_demo
+.PHONY : atomic_demo
+
+# fast build rule for target.
+atomic_demo/fast:
+	$(MAKE) -f CMakeFiles/atomic_demo.dir/build.make CMakeFiles/atomic_demo.dir/build
+.PHONY : atomic_demo/fast
+
+#=============================================================================
 # Target rules for targets named client
 
 # Build rule for target.
@@ -122,6 +135,19 @@ client: cmake_check_build_system
 client/fast:
 	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/build
 .PHONY : client/fast
+
+#=============================================================================
+# Target rules for targets named OS_Ex3_NEW
+
+# Build rule for target.
+OS_Ex3_NEW: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 OS_Ex3_NEW
+.PHONY : OS_Ex3_NEW
+
+# fast build rule for target.
+OS_Ex3_NEW/fast:
+	$(MAKE) -f CMakeFiles/OS_Ex3_NEW.dir/build.make CMakeFiles/OS_Ex3_NEW.dir/build
+.PHONY : OS_Ex3_NEW/fast
 
 #=============================================================================
 # Target rules for targets named OS_Ex3
@@ -166,32 +192,86 @@ MapReduceFramework.cpp.s:
 	$(MAKE) -f CMakeFiles/OS_Ex3.dir/build.make CMakeFiles/OS_Ex3.dir/MapReduceFramework.cpp.s
 .PHONY : MapReduceFramework.cpp.s
 
-SampleClient.o: SampleClient.cpp.o
+MapReduceFramework2.o: MapReduceFramework2.cpp.o
 
-.PHONY : SampleClient.o
+.PHONY : MapReduceFramework2.o
 
 # target to build an object file
-SampleClient.cpp.o:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SampleClient.cpp.o
-.PHONY : SampleClient.cpp.o
+MapReduceFramework2.cpp.o:
+	$(MAKE) -f CMakeFiles/OS_Ex3_NEW.dir/build.make CMakeFiles/OS_Ex3_NEW.dir/MapReduceFramework2.cpp.o
+.PHONY : MapReduceFramework2.cpp.o
 
-SampleClient.i: SampleClient.cpp.i
+MapReduceFramework2.i: MapReduceFramework2.cpp.i
 
-.PHONY : SampleClient.i
+.PHONY : MapReduceFramework2.i
 
 # target to preprocess a source file
-SampleClient.cpp.i:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SampleClient.cpp.i
-.PHONY : SampleClient.cpp.i
+MapReduceFramework2.cpp.i:
+	$(MAKE) -f CMakeFiles/OS_Ex3_NEW.dir/build.make CMakeFiles/OS_Ex3_NEW.dir/MapReduceFramework2.cpp.i
+.PHONY : MapReduceFramework2.cpp.i
 
-SampleClient.s: SampleClient.cpp.s
+MapReduceFramework2.s: MapReduceFramework2.cpp.s
 
-.PHONY : SampleClient.s
+.PHONY : MapReduceFramework2.s
 
 # target to generate assembly for a file
-SampleClient.cpp.s:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SampleClient.cpp.s
-.PHONY : SampleClient.cpp.s
+MapReduceFramework2.cpp.s:
+	$(MAKE) -f CMakeFiles/OS_Ex3_NEW.dir/build.make CMakeFiles/OS_Ex3_NEW.dir/MapReduceFramework2.cpp.s
+.PHONY : MapReduceFramework2.cpp.s
+
+SuppliedFiles/atomicdemo/atomicdemo.o: SuppliedFiles/atomicdemo/atomicdemo.cpp.o
+
+.PHONY : SuppliedFiles/atomicdemo/atomicdemo.o
+
+# target to build an object file
+SuppliedFiles/atomicdemo/atomicdemo.cpp.o:
+	$(MAKE) -f CMakeFiles/atomic_demo.dir/build.make CMakeFiles/atomic_demo.dir/SuppliedFiles/atomicdemo/atomicdemo.cpp.o
+.PHONY : SuppliedFiles/atomicdemo/atomicdemo.cpp.o
+
+SuppliedFiles/atomicdemo/atomicdemo.i: SuppliedFiles/atomicdemo/atomicdemo.cpp.i
+
+.PHONY : SuppliedFiles/atomicdemo/atomicdemo.i
+
+# target to preprocess a source file
+SuppliedFiles/atomicdemo/atomicdemo.cpp.i:
+	$(MAKE) -f CMakeFiles/atomic_demo.dir/build.make CMakeFiles/atomic_demo.dir/SuppliedFiles/atomicdemo/atomicdemo.cpp.i
+.PHONY : SuppliedFiles/atomicdemo/atomicdemo.cpp.i
+
+SuppliedFiles/atomicdemo/atomicdemo.s: SuppliedFiles/atomicdemo/atomicdemo.cpp.s
+
+.PHONY : SuppliedFiles/atomicdemo/atomicdemo.s
+
+# target to generate assembly for a file
+SuppliedFiles/atomicdemo/atomicdemo.cpp.s:
+	$(MAKE) -f CMakeFiles/atomic_demo.dir/build.make CMakeFiles/atomic_demo.dir/SuppliedFiles/atomicdemo/atomicdemo.cpp.s
+.PHONY : SuppliedFiles/atomicdemo/atomicdemo.cpp.s
+
+SuppliedFiles/sampleclient/SampleClient.o: SuppliedFiles/sampleclient/SampleClient.cpp.o
+
+.PHONY : SuppliedFiles/sampleclient/SampleClient.o
+
+# target to build an object file
+SuppliedFiles/sampleclient/SampleClient.cpp.o:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SuppliedFiles/sampleclient/SampleClient.cpp.o
+.PHONY : SuppliedFiles/sampleclient/SampleClient.cpp.o
+
+SuppliedFiles/sampleclient/SampleClient.i: SuppliedFiles/sampleclient/SampleClient.cpp.i
+
+.PHONY : SuppliedFiles/sampleclient/SampleClient.i
+
+# target to preprocess a source file
+SuppliedFiles/sampleclient/SampleClient.cpp.i:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SuppliedFiles/sampleclient/SampleClient.cpp.i
+.PHONY : SuppliedFiles/sampleclient/SampleClient.cpp.i
+
+SuppliedFiles/sampleclient/SampleClient.s: SuppliedFiles/sampleclient/SampleClient.cpp.s
+
+.PHONY : SuppliedFiles/sampleclient/SampleClient.s
+
+# target to generate assembly for a file
+SuppliedFiles/sampleclient/SampleClient.cpp.s:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/SuppliedFiles/sampleclient/SampleClient.cpp.s
+.PHONY : SuppliedFiles/sampleclient/SampleClient.cpp.s
 
 # Help Target
 help:
@@ -201,14 +281,22 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
+	@echo "... atomic_demo"
 	@echo "... client"
+	@echo "... OS_Ex3_NEW"
 	@echo "... OS_Ex3"
 	@echo "... MapReduceFramework.o"
 	@echo "... MapReduceFramework.i"
 	@echo "... MapReduceFramework.s"
-	@echo "... SampleClient.o"
-	@echo "... SampleClient.i"
-	@echo "... SampleClient.s"
+	@echo "... MapReduceFramework2.o"
+	@echo "... MapReduceFramework2.i"
+	@echo "... MapReduceFramework2.s"
+	@echo "... SuppliedFiles/atomicdemo/atomicdemo.o"
+	@echo "... SuppliedFiles/atomicdemo/atomicdemo.i"
+	@echo "... SuppliedFiles/atomicdemo/atomicdemo.s"
+	@echo "... SuppliedFiles/sampleclient/SampleClient.o"
+	@echo "... SuppliedFiles/sampleclient/SampleClient.i"
+	@echo "... SuppliedFiles/sampleclient/SampleClient.s"
 .PHONY : help
 
 

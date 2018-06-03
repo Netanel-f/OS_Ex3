@@ -44,6 +44,8 @@ set(CMAKE_MAKEFILE_PRODUCTS
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
+  "CMakeFiles/atomic_demo.dir/DependInfo.cmake"
   "CMakeFiles/client.dir/DependInfo.cmake"
+  "CMakeFiles/OS_Ex3_NEW.dir/DependInfo.cmake"
   "CMakeFiles/OS_Ex3.dir/DependInfo.cmake"
   )
