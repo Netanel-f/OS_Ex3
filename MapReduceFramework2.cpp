@@ -192,7 +192,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
         sem_post(threadContexts[0].semaphore_arg);
         barrier.shuffleUnlock();
 
-    }
+
 
     // main thread-reduce
     threadReduce(threadContexts);
