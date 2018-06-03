@@ -48,7 +48,7 @@ void check_for_error();
  */
 void emit2 (K2* key, V2* value, void* context){
     auto tc = (ThreadContext *) context;
-    IntermediatePair k2_pair = std::pair(&key, &value);
+    IntermediatePair k2_pair = std::make_pair(key, value);
     tc->threadIndVec.push_back(k2_pair);    // todo check mem-leaks.
 }
 
@@ -59,7 +59,7 @@ void emit2 (K2* key, V2* value, void* context){
  * @param context
  */
 void emit3 (K3* key, V3* value, void* context){
-    OutputPair k3_pair = std::pair(&key, &value);
+    OutputPair k3_pair = std::make_pair(key, value);
     auto * tc = (ThreadContext *) context;
     tc->barrier->reduceLock();
     tc->outputVec->push_back(k3_pair);
