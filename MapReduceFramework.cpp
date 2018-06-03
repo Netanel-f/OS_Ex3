@@ -16,7 +16,7 @@
 struct ThreadContext {
     // unique fields
     int threadID;
-    IntermediateVec& threadIndVec;
+    IntermediateVec* threadIndVec;
 
     // shared data among threads
     const MapReduceClient* client;
@@ -34,7 +34,7 @@ struct ThreadContext {
 void * threadFlow(void * arg);
 void threadReduce(ThreadContext * tc);
 bool areEqualK2(K2 &a, K2 &b);
-void check_for_error();
+void check_for_error(int & returnVal, const std::string &message);
 
 
 //// ============================ framework functions ==============================================
@@ -49,7 +49,7 @@ void check_for_error();
 void emit2 (K2* key, V2* value, void* context){
     auto tc = (ThreadContext *) context;
     IntermediatePair k2_pair = std::make_pair(key, value);
-    tc->threadIndVec.push_back(k2_pair);    // todo check mem-leaks.
+    tc->threadIndVec->push_back(k2_pair);    // todo check mem-leaks.
 }
 
 /**
@@ -92,7 +92,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     for (int i = 0; i < multiThreadLevel; ++i) {
         IntermediateVec threadIndVec = IntermediateVec();
-        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
+        threadContexts[i] = {i, &threadIndVec, &client, &inputVec, &outputVec,
                              &atomic_counter, sem, &barrier, &shufVec};
     }
 
@@ -108,11 +108,6 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     // init atomic to track output vec
     threadContexts[0].atomic_counter = 0;
 
-    unsigned long numOfRemainingElementsToShuffle = threadContexts[0].inputVec->size();
-
-
-    // shuffle
-
     while (true){
         // for each key
         K2 curKeyToMake = {};
@@ -126,9 +121,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
         for (int i = 0; i < multiThreadLevel ; ++i) {
 
             //ensure not empty
-            if (!threadContexts[i].threadIndVec.empty()) {
+            if (!threadContexts[i].threadIndVec->empty()) {
 
-                K2 thisKey = *threadContexts[i].threadIndVec.back().first;
+                K2 thisKey = *threadContexts[i].threadIndVec->back().first;
 
                 if(allEmptySoFar){
                     // take max (back)
@@ -158,19 +153,19 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             for (int i = 0; i < multiThreadLevel; ++i) {
 
                 //ensure not empty
-                if (!threadContexts[i].threadIndVec.empty()) {
+                if (!threadContexts[i].threadIndVec->empty()) {
 
-                    K2 thisKey = *threadContexts[i].threadIndVec.back().first;
+                    K2 thisKey = *threadContexts[i].threadIndVec->back().first;
 
                     if (areEqualK2(thisKey, curKeyToMake)) {
 
                         NoneEqualSoFar = false;
 
                         // add it to our vector
-                        curKeyVec.push_back( ( threadContexts[i].threadIndVec.back() ) );
+                        curKeyVec.push_back( ( threadContexts[i].threadIndVec->back() ) );
 
                         // erase it from the vector
-                        threadContexts[i].threadIndVec.pop_back();
+                        threadContexts[i].threadIndVec->pop_back();
 
                     }
                 }
@@ -226,8 +221,8 @@ void * threadFlow(void * arg) {
     }
 
     //// Sort phase
-    if (!tc->threadIndVec.empty()) {
-        std::sort(tc->threadIndVec.begin(), tc->threadIndVec.end());
+    if (!tc->threadIndVec->empty()) {
+        std::sort(tc->threadIndVec->begin(), tc->threadIndVec->end());
     }
 
     // todo check if we can use the provided Barrier class
@@ -240,6 +235,7 @@ void * threadFlow(void * arg) {
         threadReduce(tc);
     }
     // main thread (ID==0) continues without waiting to shuffle.
+    //todo return
 }
 
 void threadReduce(ThreadContext * tc) {
@@ -249,7 +245,7 @@ void threadReduce(ThreadContext * tc) {
     while (shouldContinueReducing) {        //todo check properly
         tc->barrier->shuffleLock();
 
-        int old_atom = (*(tc->atomic_counter))++;
+        unsigned int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < (tc->inputVec->size())) {
             std::vector<IntermediatePair> * pairs = &(tc->shuffleVector->back());
             tc->shuffleVector->pop_back();
@@ -269,10 +265,10 @@ bool areEqualK2(K2& a, K2& b){
     return !((a<b)||(b<a));
 }
 
-int exitFramework(ThreadContext * tc) {
+void exitFramework(ThreadContext * tc) {
     delete (tc->barrier);
     sem_destroy(tc->semaphore_arg);
-
+    //todo verify with valgrind
 }
 ////=================================  Error Function ==============================================
 
