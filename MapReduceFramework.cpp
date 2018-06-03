@@ -1,58 +1,41 @@
 
 #include <atomic>
 #include <algorithm>
+#include <iostream>
+#include <semaphore.h>
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
-
-//todo maybe implement data struct as class (instance created for each call to framework?)
+#include "Barrier.h"
 
 
 //// ============================   defines and const ==============================================
 
 
-//// ===========================   typedefs & structs =========================================================
+//// ===========================   typedefs & structs ==============================================
 
-//todo struct holding atomic and semaphore
+struct ThreadContext {
+    // unique fields
+    int threadID;
+    IntermediateVec& threadIndVec;
 
-struct data
-{
-  ////mutexes, semaphors
-  //std::atomic<int>& atomic_counter;
-
-  ////params
-  //int& multiThreadLevel;
-
-  ////data
-  const MapReduceClient& client;
-  const InputVec& inputVec;
-  IntermediateVec& indVec;
-  std::vector<IntermediateVec>& vecVec;
-  OutputVec& outputVec;
-
-  data(int lvl,
-       const MapReduceClient& client, const InputVec& inputVec,
-        OutputVec& outputVec) :
-
-      client(client),
-      inputVec(inputVec),
-      indVec(),
-      vecVec(),
-      outputVec(outputVec)
-      //multiThreadLevel(lvl)
-  {}
+    // shared data among threads
+    const MapReduceClient* client;
+    const InputVec* inputVec;
+    OutputVec* outputVec;
+    std::atomic<unsigned int>* atomic_counter;
+    sem_t * semaphore_arg;
+    Barrier* barrier;
+    std::vector<IntermediateVec> * shuffleVector;
 };
 
 
 //// ============================   forward declarations for helper funcs ==========================
 
-void threadFlow();
-void mainFlow();
-void shuffle();
+void * threadFlow(void * arg);
+void threadReduce(ThreadContext * tc);
+bool areEqualK2(K2 &a, K2 &b);
+void check_for_error();
 
-void noThreads(data &stuff);
-
-
-bool areEqualK2(K2 *a, K2 *b);
 
 //// ============================ framework functions ==============================================
 
@@ -64,10 +47,9 @@ bool areEqualK2(K2 *a, K2 *b);
  * @param context
  */
 void emit2 (K2* key, V2* value, void* context){
+    ThreadContext * tc = (auto) context;
     IntermediatePair k2_pair = std::pair(&key, &value);
-    auto * context_pointer = (data*) context;
-    context_pointer->indVec.push_back(k2_pair);
-
+    tc->threadIndVec.push_back(k2_pair);    // todo check mem-leaks.
 }
 
 /**
@@ -77,10 +59,14 @@ void emit2 (K2* key, V2* value, void* context){
  * @param context
  */
 void emit3 (K3* key, V3* value, void* context){
-  OutputPair k3_pair = std::pair(&key, &value);
-  auto * context_pointer = (data *) context;
-  context_pointer->outputVec.push_back(k3_pair);
+    OutputPair k3_pair = std::pair(&key, &value);
+    auto * tc = (ThreadContext *) context;
+    tc->barrier->reducelock();
+    tc->outputVec->push_back(k3_pair);
+    tc->barrier->reduceUnlock();
 }
+
+//todo check for error return handles - maybe i miss-handled some of them
 
 /**
  *
@@ -89,140 +75,218 @@ void emit3 (K3* key, V3* value, void* context){
  * @param outputVec
  * @param multiThreadLevel
  */
-void runMapReduceFramework(const MapReduceClient& client,
-	const InputVec& inputVec, OutputVec& outputVec,
-	int multiThreadLevel){
+void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputVec,
+                           OutputVec& outputVec, int multiThreadLevel) {
 
-  // initialise data
-  data stuff(1,client,inputVec, outputVec);
+    pthread_t threads[multiThreadLevel];
+    ThreadContext threadContexts[multiThreadLevel];
+    Barrier barrier(multiThreadLevel);
+    std::atomic<unsigned int> atomic_counter(0);
+    std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
 
-  // call mainFlow()
-  noThreads(stuff);
+    // init semaphore so other threads would wait to it.
+    sem_t * sem;
+    int semInitValue = sem_init(sem, 0, 0);    //todo check sem initialization.
+    check_for_error(semInitValue, "Failed to initialize semaphore.");
 
-  // finish
+
+    for (int i = 0; i < multiThreadLevel; ++i) {
+        IntermediateVec threadIndVec = IntermediateVec();
+        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
+                             &atomic_counter, sem, &barrier, &shufVec};
+    }
+
+    for (int i = 1; i < multiThreadLevel; ++i) {
+        pthread_create(threads + i, nullptr, threadFlow, threadContexts + i);
+    }
+
+    //main thread should map and sort as well.
+    threadFlow(threadContexts);
+
+    //// Shuffle phase
+
+    // init atomic to track output vec
+    threadContexts[0].atomic_counter = 0;
+
+    unsigned long numOfRemainingElementsToShuffle = threadContexts[0].inputVec->size();
+
+
+    // shuffle
+
+    while (true){
+        // for each key
+        K2 curKeyToMake = {};
+
+        // find max key
+
+        bool allEmptySoFar = true;
+        K2 curMax = {};
+
+        // iterate through thread's vectors
+        for (int i = 0; i < multiThreadLevel ; ++i) {
+
+            //ensure not empty
+            if (!threadContexts[i].threadIndVec.empty()) {
+
+                K2 thisKey = *threadContexts[i].threadIndVec.back().first;
+
+                if(allEmptySoFar){
+                    // take max (back)
+                    curMax = thisKey;
+                    allEmptySoFar= false;
+
+                }else if(curMax<thisKey){
+                    // update max if larger
+                    curMax = thisKey;
+                }
+
+            }
+        }
+
+        // if we have not found a non-empty vector - all have been cleared.
+        if(allEmptySoFar) break;
+
+        bool NoneEqualSoFar = true;
+        // this is our current key
+        curKeyToMake = curMax;
+        // make a vector of this key
+        IntermediateVec curKeyVec;
+
+        while(true) {
+
+            // iterate through thread's vectors
+            for (int i = 0; i < multiThreadLevel; ++i) {
+
+                //ensure not empty
+                if (!threadContexts[i].threadIndVec.empty()) {
+
+                    K2 thisKey = *threadContexts[i].threadIndVec.back().first;
+
+                    if (areEqualK2(thisKey, curKeyToMake)) {
+
+                        NoneEqualSoFar = false;
+
+                        // add it to our vector
+                        curKeyVec.push_back( ( threadContexts[i].threadIndVec.back() ) );
+
+                        // erase it from the vector
+                        threadContexts[i].threadIndVec.pop_back();
+
+                    }
+                }
+            }
+
+            // if we have found no equal at the back of any vector, we have finished with this key
+            if(NoneEqualSoFar) {
+                //todo send vector to a thread
+
+                barrier.shufflelock();   // blocking the mutex
+
+                // feeding shared vector and increasing semaphore.
+                threadContexts[0].shuffleVector->push_back(curKeyVec);
+                sem_post(threadContexts[0].semaphore_arg);
+
+                barrier.shuffleUnlock(); // unblock mutex
+
+                // break, and find the next key.
+                break;
+            }
+        }
+
+    }
+
+    // main thread-reduce
+    threadReduce(threadContexts);
+
+    //finish
+    //todo implement main thread exit? delete object and release memory.
 
 }
 
 ////===============================  Helper Functions ==============================================
 
-void threadFlow(){
+void * threadFlow(void * arg) {
+    ThreadContext * tc = (auto) arg;
 
-	//MAP
+    //// Map phase
+    bool shouldContinueMapping = true;
+    while (shouldContinueMapping) {
 
-		// check atomic for new items to be mapped (k1v1)
-        // pull a pair
-		// use emit (with context !) to map the items to this thread's own ind vector
+        // check atomic for new items to be mapped (k1v1)
+        unsigned int old_atom = (*(tc->atomic_counter))++;
+        if (old_atom < (tc->inputVec->size())) {
 
-	// SORT
-
-		// sort the items within this threads indvec
-
-	// BARRIER
-
-		// get to the barrier
-		// wait for main thread to tell me to keep going
-
-
-	// Reduce
-
-		// wait for new K2-specific vectors to become available
-        // pull a vector
-        // use emit (with context !) to map the items to this thread's own ind vector
-
-
-}
-
-void mainFlow(){
-	// same as thread flow, but with additional control segments
-}
-
-void noThreads(data &stuff){ //todo remove
-
-  //// Map
-
-  // check atomic for new items to be mapped (k1v1)
-
-  // map the items
-    for (const InputPair &k1_pair : stuff.inputVec) {
-        stuff.client.map(k1_pair.first, k1_pair.second, &stuff);
+            // calls client map func with pair at old_atom.
+            tc->client->map(tc->inputVec->at(old_atom).first,
+                            tc->inputVec->at(old_atom).second, tc);
+        } else {
+            //done parsing the input vector.
+            shouldContinueMapping = false;    // todo maybe change to break?
+        }
     }
 
-  // emit the mapped items (k2v2) //todo N: emitted by client map func.
-
-  ///// Sort
-
-  // sort the items
-  std::sort(stuff.indVec.begin(), stuff.indVec.end());
-
-  //// Shuffle
-    shuffle(stuff);
-
-  //// Reduce
-  for(IntermediateVec& vec: stuff.vecVec){
-    stuff.client.reduce(&vec,&stuff);
-  }
-
-  // wait for new items to be come available
-
-  // make output itemp (k3v3)
-
-}
-bool areEqualK2(K2* a, K2* b){
-
-  // neither a<b nor b<a means a==b
-  return !((a<b)||(b<a));
-}
-
-
-void shuffle(data stuff){
-
-
-//    std::vector<IntermediateVec> vecVec; //todo N test
-//
-//    auto key = stuff.indVec.back().first;
-//    IntermediatePair &first_pair = stuff.indVec.back();
-//    stuff.indVec.pop_back();
-//
-//    IntermediateVec first_key_vec;
-//    first_key_vec.push_back(first_pair);
-//    vecVec.push_back(first_key_vec);
-//
-//    IntermediateVec current_key_indVec;
-//
-//
-//    while (!stuff.indVec.empty()) {
-//        auto current = &stuff.indVec.back();
-//        stuff.indVec.pop_back();
-//
-//        if (current->first == key) {
-//            vecVec.back().push_back(*current);
-//        } else {
-//
-//            vecVec.emplace_back(current_key_indVec);
-//            current_key_indVec.clear();
-//            key = current->first;
-//            current_key_indVec.push_back(*current);
-//        }
-//    }
-
-
-  std::vector<IntermediateVec> vecVec;
-
-  auto key = stuff.indVec.back().first;
-  IntermediateVec current_key_indVec;
-
-  while (!stuff.indVec.empty()) {
-    auto current = &stuff.indVec.back();
-    stuff.indVec.pop_back();
-
-    if (areEqualK2(current->first, key)) {
-      current_key_indVec.push_back(*current);
-    } else {
-      vecVec.emplace_back(current_key_indVec);
-      current_key_indVec.clear();
-      key = current->first;
-      current_key_indVec.push_back(*current);
+    //// Sort phase
+    if (!tc->threadIndVec.empty()) {
+        std::sort(tc->threadIndVec.begin(), tc->threadIndVec.end());
     }
-  }
+
+    // todo check if we can use the provided Barrier class
+    // setting thread to wait at barrier.
+    tc->barrier->barrier();
+
+    // if not main thread, wait for semaphore to reduce
+    if (tc->threadID != 0) {
+        sem_wait(tc->semaphore_arg);
+        threadReduce(tc);
+    }
+    // main thread (ID==0) continues without waiting to shuffle.
 }
 
+void threadReduce(ThreadContext * tc) {
+
+    //reducing
+    bool shouldContinueReducing = true;
+    while (shouldContinueReducing) {        //todo check properly
+        tc->barrier->shufflelock();
+
+        int old_atom = (*(tc->atomic_counter))++;
+        if (old_atom < (tc->inputVec->size())) {
+            std::vector * pairs = &(tc->shuffleVector->back());
+            tc->shuffleVector->pop_back();
+            tc->client->reduce(pairs, tc);
+        } else {
+            shouldContinueReducing = false;
+        }
+        tc->barrier->shuffleUnlock();
+    }
+    if (tc->threadID != 0) { pthread_exit(0); }
+}
+
+
+bool areEqualK2(K2& a, K2& b){
+
+    // neither a<b nor b<a means a==b
+    return !((a<b)||(b<a));
+}
+
+int exitFramework(ThreadContext * tc) {
+    delete (*(tc->barrier));
+    sem_destroy(tc->semaphore_arg);
+
+}
+////=================================  Error Function ==============================================
+
+void check_for_error(int & returnVal, const std::string &message) {
+
+    if (returnVal == 0) return;
+
+    // set prefix
+    std::string title = "Library error: ";
+
+    // print error message with prefix
+    std::cerr << title << message << "\n";
+
+    // exit
+    exit(1);  // todo is this what we want?
+
+}
