@@ -147,12 +147,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
         // if we have not found a non-empty vector - all have been cleared.
         if(allEmptySoFar) break;
-
         bool NoneEqualSoFar = true;
-
         // this is our current key
         curKeyToMake = curMax;
-
         // make a vector of this key
         IntermediateVec curKeyVec;
 
@@ -176,7 +173,6 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                         threadContexts[i].threadIndVec.pop_back();
 
                     }
-
                 }
             }
 
@@ -186,7 +182,6 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
                 // break, and find the next key.
                 break;
-
             }
         }
 
