@@ -2,10 +2,10 @@
 #include <atomic>
 #include <algorithm>
 #include <iostream>
+#include <semaphore.h>
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
 #include "Barrier.h"
-#include "semaphore.h"
 
 //todo maybe implement data struct as class (instance created for each call to framework?)
 
@@ -16,57 +16,26 @@
 //// ===========================   typedefs & structs ==============================================
 
 struct ThreadContext {
+    // unique fields
     int threadID;
+    IntermediateVec& threadIndVec;
+
+    // shared data among threads
     const MapReduceClient* client;
     const InputVec* inputVec;
     OutputVec* outputVec;
-    std::atomic<int>* atomic_counter;
+    std::atomic<unsigned int>* atomic_counter;
     sem_t * semaphore_arg;
     Barrier* barrier;
-    IntermediateVec& threadIndVec;
     std::vector<IntermediateVec> * shuffleVector;
 };
 
 //todo struct holding atomic and semaphore
 
-struct data
-{
-  ////mutexes, semaphors
-  //std::atomic<int>& atomic_counter;
-
-  ////params
-  //int& multiThreadLevel;
-
-  ////data
-  const MapReduceClient& client;
-  const InputVec& inputVec;
-  IntermediateVec& indVec;
-  std::vector<IntermediateVec>& vecVec;
-  OutputVec& outputVec;
-
-  data(int lvl,
-       const MapReduceClient& client, const InputVec& inputVec,
-        OutputVec& outputVec) :
-
-      client(client),
-      inputVec(inputVec),
-      indVec(),
-      vecVec(),
-      outputVec(outputVec)
-      //multiThreadLevel(lvl)
-  {}
-};
-
-
 //// ============================   forward declarations for helper funcs ==========================
 
 void threadFlow();
-void mainFlow();
 void shuffle();
-
-void noThreads(data &stuff);
-
-
 bool areEqualK2(K2 *a, K2 *b);
 void check_for_error();
 
@@ -114,30 +83,32 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     pthread_t threads[multiThreadLevel];
     ThreadContext threadContexts[multiThreadLevel];
     Barrier barrier(multiThreadLevel);
-    std::atomic<int> atomic_counter(0);
-    sem_t sem;
+    std::atomic<unsigned int> atomic_counter(0);
     std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
+    //init semaphore so other threads would wait to it.
+    sem_t * sem;  //todo destory at end.
+    int semInitValue = sem_init(sem, 0, 0);    //todo check sem initialization.
+    check_for_error(semInitValue, "Failed to initialize semaphore.");
+
 
     for (int i = 0; i < multiThreadLevel; ++i) {
-        IntermediateVec vec = IntermediateVec();
-        threadContexts[i] = {i, client, inputVec, outputVec, &atomic_counter, &sem, &barrier, &vec, &shufVec};
+        IntermediateVec threadIndVec = IntermediateVec();
+        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
+                             &atomic_counter, sem, &barrier, &shufVec};
     }
 
     for (int i = 1; i < multiThreadLevel; ++i) {
-        pthread_create(threads + i, NULL, threadFlow1, threadContexts + i);
+        pthread_create(threads + i, NULL, threadFlow, threadContexts + i);
     }
 
-    //init semaphore so other threads would wait to it.
-    int initValue = sem_init(&sem, 0, 0);
-    //if (initValue() < 0) {} //todo errorcheck
 
     //main thread should map and sort as well.
-    threadFlow1(threadContexts);
+    threadFlow(threadContexts);
 
     //threadContexts[0].barrier->barrier(); //Happens on threadFlow. letting now main thread arrived at the barrier
 
     // init atomic to track output vec
-    threadContexts[0].atomic_counter=0;
+    threadContexts[0].atomic_counter = 0;
 
     //shuffle
     int numOfNonEmptyThreadVec = multiThreadLevel;
@@ -182,24 +153,21 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     // main thread-reduce
     tReduce(threadContexts);
 
-
-    // initialise data
-
-  // call mainFlow()
-
-  // finish
+    //finish
+    //todo implement main thread exit? delete object and release memory.
 
 }
 
 ////===============================  Helper Functions ==============================================
 
-void * threadFlow1(void * arg) {
-    ThreadContext * tc = (ThreadContext*) arg;
+void * threadFlow(void * arg) {
+//    ThreadContext * tc = (ThreadContext*) arg; //todo decide which one is nice.
+    ThreadContext * tc = (auto) arg;
 
     // mapping
     bool keepMap = true;
     while (keepMap) {
-        int old_atom = (*(tc->atomic_counter))++;
+        unsigned int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < (tc->inputVec->size())) {
             tc->client->map(tc->inputVec->at(old_atom).first,
                             tc->inputVec->at(old_atom).second, tc);
@@ -244,7 +212,7 @@ void * tReduce(void * arg) {
 }
 
 
-void threadFlow(){
+void threadFlowORIG(){
 
 	//MAP
 
@@ -271,99 +239,64 @@ void threadFlow(){
 
 }
 
-void mainFlow(){
-	// same as thread flow, but with additional control segments
-}
-
-void noThreads(data &stuff){ //todo remove
-
-  //// Map
-
-  // check atomic for new items to be mapped (k1v1)
-
-  // map the items
-    for (const InputPair &k1_pair : stuff.inputVec) {
-        stuff.client.map(k1_pair.first, k1_pair.second, &stuff);
-    }
-
-  // emit the mapped items (k2v2) //todo N: emitted by client map func.
-
-  ///// Sort
-
-  // sort the items
-  std::sort(stuff.indVec.begin(), stuff.indVec.end());
-
-  //// Shuffle
-    shuffle(stuff);
-
-  //// Reduce
-  for(IntermediateVec& vec: stuff.vecVec){
-    stuff.client.reduce(&vec,&stuff);
-  }
-
-  // wait for new items to be come available
-
-  // make output itemp (k3v3)
-
-}
 bool areEqualK2(K2* a, K2* b){
 
   // neither a<b nor b<a means a==b
   return !((a<b)||(b<a));
 }
-
-
-void shuffle(data stuff){
-
-
-//    std::vector<IntermediateVec> vecVec; //todo N test
 //
-//    auto key = stuff.indVec.back().first;
-//    IntermediatePair &first_pair = stuff.indVec.back();
+//
+//void shuffle(data stuff){
+//
+//
+////    std::vector<IntermediateVec> vecVec; //todo N test
+////
+////    auto key = stuff.indVec.back().first;
+////    IntermediatePair &first_pair = stuff.indVec.back();
+////    stuff.indVec.pop_back();
+////
+////    IntermediateVec first_key_vec;
+////    first_key_vec.push_back(first_pair);
+////    vecVec.push_back(first_key_vec);
+////
+////    IntermediateVec current_key_indVec;
+////
+////
+////    while (!stuff.indVec.empty()) {
+////        auto current = &stuff.indVec.back();
+////        stuff.indVec.pop_back();
+////
+////        if (current->first == key) {
+////            vecVec.back().push_back(*current);
+////        } else {
+////
+////            vecVec.emplace_back(current_key_indVec);
+////            current_key_indVec.clear();
+////            key = current->first;
+////            current_key_indVec.push_back(*current);
+////        }
+////    }
+//
+//
+//  std::vector<IntermediateVec> vecVec;
+//
+//  auto key = stuff.indVec.back().first;
+//  IntermediateVec current_key_indVec;
+//
+//  while (!stuff.indVec.empty()) {
+//    auto current = &stuff.indVec.back();
 //    stuff.indVec.pop_back();
 //
-//    IntermediateVec first_key_vec;
-//    first_key_vec.push_back(first_pair);
-//    vecVec.push_back(first_key_vec);
-//
-//    IntermediateVec current_key_indVec;
-//
-//
-//    while (!stuff.indVec.empty()) {
-//        auto current = &stuff.indVec.back();
-//        stuff.indVec.pop_back();
-//
-//        if (current->first == key) {
-//            vecVec.back().push_back(*current);
-//        } else {
-//
-//            vecVec.emplace_back(current_key_indVec);
-//            current_key_indVec.clear();
-//            key = current->first;
-//            current_key_indVec.push_back(*current);
-//        }
+//    if (areEqualK2(current->first, key)) {
+//      current_key_indVec.push_back(*current);
+//    } else {
+//      vecVec.emplace_back(current_key_indVec);
+//      current_key_indVec.clear();
+//      key = current->first;
+//      current_key_indVec.push_back(*current);
 //    }
-
-
-  std::vector<IntermediateVec> vecVec;
-
-  auto key = stuff.indVec.back().first;
-  IntermediateVec current_key_indVec;
-
-  while (!stuff.indVec.empty()) {
-    auto current = &stuff.indVec.back();
-    stuff.indVec.pop_back();
-
-    if (areEqualK2(current->first, key)) {
-      current_key_indVec.push_back(*current);
-    } else {
-      vecVec.emplace_back(current_key_indVec);
-      current_key_indVec.clear();
-      key = current->first;
-      current_key_indVec.push_back(*current);
-    }
-  }
-}
+//  }
+//}
 
 ////=================================  Error Function ==============================================
 
