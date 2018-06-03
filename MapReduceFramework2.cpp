@@ -13,13 +13,13 @@
 //// ============================   defines and const ==============================================
 
 
-//// ===========================   typedefs & structs =========================================================
+//// ===========================   typedefs & structs ==============================================
 
 struct ThreadContext {
     int threadID;
     const MapReduceClient* client;
     const InputVec* inputVec;
-    outputVec* outputVec;
+    OutputVec* outputVec;
     std::atomic<int>* atomic_counter;
     sem_t * semaphore_arg;
     Barrier* barrier;
@@ -68,6 +68,8 @@ void noThreads(data &stuff);
 
 
 bool areEqualK2(K2 *a, K2 *b);
+void check_for_error();
+
 
 //// ============================ framework functions ==============================================
 
@@ -93,7 +95,8 @@ void emit2 (K2* key, V2* value, void* context){
 void emit3 (K3* key, V3* value, void* context){
     OutputPair k3_pair = std::pair(&key, &value);
     auto * tc = (ThreadContext *) context;
-    tc->outputVec.push_back(k3_pair);
+//    tc->outputVec.push_back(k3_pair); //todo fix
+    tc->outputVec->push_back(k3_pair);
 }
 
 //todo check for error return handles - maybe i miss-handled some of them
@@ -128,7 +131,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     int initValue = sem_init(&sem, 0, 0);
     //if (initValue() < 0) {} //todo errorcheck
 
-    //main thread shoud map and sort as well.
+    //main thread should map and sort as well.
     threadFlow1(threadContexts);
 
     //threadContexts[0].barrier->barrier(); //Happens on threadFlow. letting now main thread arrived at the barrier
@@ -364,9 +367,9 @@ void shuffle(data stuff){
 
 ////=================================  Error Function ==============================================
 
-void print_error(int & returnVall, const std::string &message) {
+void check_for_error(int & returnVal, const std::string &message) {
 
-  if (returnVall == 0) return;
+  if (returnVal == 0) return;
 
   // set prefix
   std::string title = "Library error: ";
