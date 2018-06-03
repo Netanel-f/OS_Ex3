@@ -145,6 +145,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
         // if we have not found a non-empty vector - all have been cleared.
         if(allEmptySoFar) break;
+
         bool NoneEqualSoFar = true;
         // this is our current key
         curKeyToMake = curMax;
@@ -166,7 +167,8 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                         NoneEqualSoFar = false;
 
                         // add it to our vector
-                        curKeyVec.push_back(threadContexts[i].threadIndVec.back());
+                        curKeyVec.push_back( ( threadContexts[i].threadIndVec.back() ) );
+
                         // erase it from the vector
                         threadContexts[i].threadIndVec.pop_back();
 
@@ -178,21 +180,20 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             if(NoneEqualSoFar) {
                 //todo send vector to a thread
 
+                barrier.shufflelock();   // blocking the mutex
+
+                // feeding shared vector and increasing semaphore.
+                threadContexts[0].shuffleVector->push_back(curKeyVec);
+                sem_post(threadContexts[0].semaphore_arg);
+
+                barrier.shuffleUnlock(); // unblock mutex
+
                 // break, and find the next key.
                 break;
             }
         }
 
     }
-
-        barrier.reducelock();   // blocking the mutex
-
-        // feeding shared vector and increasing semaphore.
-        threadContexts[0].shuffleVector->push_back(currentKeyIndVec);
-        sem_post(threadContexts[0].semaphore_arg);
-        barrier.shuffleUnlock();
-
-
 
     // main thread-reduce
     threadReduce(threadContexts);
