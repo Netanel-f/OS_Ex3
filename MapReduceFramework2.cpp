@@ -63,8 +63,9 @@ void emit2 (K2* key, V2* value, void* context){
 void emit3 (K3* key, V3* value, void* context){
     OutputPair k3_pair = std::pair(&key, &value);
     auto * tc = (ThreadContext *) context;
-//    tc->outputVec.push_back(k3_pair); //todo fix
-    tc->outputVec->push_back(k3_pair);
+    tc->barrier->reducelock();
+    tc->outputVec->push_back(k3_pair); //todo create independent output mutex lock.
+    tc->barrier->reduceUnlock();
 }
 
 //todo check for error return handles - maybe i miss-handled some of them
@@ -113,23 +114,29 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     // Looping to create
     while (numOfRemainingElementsToShuffle > 0) {
-        int keyThreadId = 0;
+        int maxKeyThreadId = -1;
+        K2 * key = nullptr;
 
         // Finding the first not empty thread Intermediate Vector.
         for (int i = 0; i < multiThreadLevel; i++) {
             if (!threadContexts[i].threadIndVec.empty()) {
-                keyThreadId = i;
+                maxKeyThreadId = i;
+                key = threadContexts[i].threadIndVec.back().first;
                 break;
             }
             //todo N:check if code can reach to the point of the last thread and it's empty.
         }
 
-        auto key = threadContexts[keyThreadId].threadIndVec.back().first;
+        // Finding the max key
+        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
+            if (!threadContexts[i].threadIndVec.empty() &&
+                    (key > threadContexts[i].threadIndVec.back().first)) {
+                maxKeyThreadId = i;
+            }
+        }
+
         IntermediateVec currentKeyIndVec = IntermediateVec();
-
-        //todo need to fix the finding equals.
-
-        for (int i = keyThreadId; i < multiThreadLevel; i++) {
+        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
             // Popping matching k2pairs from all thread's vectors.
 
             while (areEqualK2(threadContexts[i].threadIndVec.back().first, key)) {
@@ -141,12 +148,12 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             }
         }
 
-        barrier.reducelock();   // blocking the mutex
+        barrier.shufflelock();   // blocking the mutex
 
         // feeding shared vector and increasing semaphore.
         threadContexts[0].shuffleVector->push_back(currentKeyIndVec);
         sem_post(threadContexts[0].semaphore_arg);
-        barrier.reduceUnlock();
+        barrier.shuffleUnlock();
 
     }
 
@@ -202,7 +209,7 @@ void threadReduce(ThreadContext * tc) {
     //reducing
     bool keepReduce = true;
     while (keepReduce) {        //todo check properly
-        tc->barrier->reducelock();
+        tc->barrier->shufflelock();
 
         //todo create independent output mutex lock.
         int old_atom = (*(tc->atomic_counter))++;
@@ -213,38 +220,11 @@ void threadReduce(ThreadContext * tc) {
         } else {
             keepReduce = false;
         }
-        tc->barrier->reduceUnlock();
+        tc->barrier->shuffleUnlock();
     }
     if (tc->threadID != 0) { pthread_exit(0); }
 }
 
-
-void threadFlowORIG(){
-
-	//MAP
-
-		// check atomic for new items to be mapped (k1v1)
-        // pull a pair
-		// use emit (with context !) to map the items to this thread's own ind vector
-
-	// SORT
-
-		// sort the items within this threads indvec
-
-	// BARRIER
-
-		// get to the barrier
-		// wait for main thread to tell me to keep going
-
-
-	// Reduce
-
-		// wait for new K2-specific vectors to become available
-        // pull a vector
-        // use emit (with context !) to map the items to this thread's own ind vector
-
-
-}
 
 bool areEqualK2(K2* a, K2* b){
 
