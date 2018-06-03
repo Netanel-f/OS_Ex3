@@ -180,7 +180,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             if(NoneEqualSoFar) {
                 //todo send vector to a thread
 
-                barrier.shufflelock();   // blocking the mutex
+                barrier.shuffleLock();   // blocking the mutex
 
                 // feeding shared vector and increasing semaphore.
                 threadContexts[0].shuffleVector->push_back(curKeyVec);

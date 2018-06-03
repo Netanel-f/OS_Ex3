@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <semaphore.h>
+
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
 #include "Barrier.h"
@@ -110,12 +111,12 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     while (true){
         // for each key
-        K2 curKeyToMake = {};
+        K2 *curKeyToMake;
 
         // find max key
 
         bool allEmptySoFar = true;
-        K2 curMax = {};
+        K2 *curMax = {};
 
         // iterate through thread's vectors
         for (int i = 0; i < multiThreadLevel ; ++i) {
@@ -123,14 +124,14 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             //ensure not empty
             if (!threadContexts[i].threadIndVec->empty()) {
 
-                K2 thisKey = *threadContexts[i].threadIndVec->back().first;
+                K2 *thisKey = threadContexts[i].threadIndVec->back().first;
 
                 if(allEmptySoFar){
                     // take max (back)
                     curMax = thisKey;
                     allEmptySoFar= false;
 
-                }else if(curMax<thisKey){
+                }else if(*curMax<*thisKey){
                     // update max if larger
                     curMax = thisKey;
                 }
@@ -155,9 +156,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                 //ensure not empty
                 if (!threadContexts[i].threadIndVec->empty()) {
 
-                    K2 thisKey = *threadContexts[i].threadIndVec->back().first;
+                    K2 *thisKey = threadContexts[i].threadIndVec->back().first;
 
-                    if (areEqualK2(thisKey, curKeyToMake)) {
+                    if (areEqualK2(*thisKey, *curKeyToMake)) {
 
                         NoneEqualSoFar = false;
 
