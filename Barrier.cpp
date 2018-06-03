@@ -36,7 +36,7 @@ void Barrier::barrier()
 		}
 	} else {
 		count = 0;
-		if (pthread_cond_broadcast(&cv) != 0) {
+		if (pthread_cond_broadcast(&cv) != 0) { //todo change from broadcast to signal??
 			fprintf(stderr, "[[Barrier]] error on pthread_cond_broadcast");
 			exit(1);
 		}
