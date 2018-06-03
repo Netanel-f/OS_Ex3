@@ -43,7 +43,9 @@ int main(int argc, char** argv)
 	}
 
 	for (int i = 0; i < MT_LEVEL; ++i) {
+		printf("before join tid %d\n", i);
 		pthread_join(threads[i], NULL);
+		printf("after join tid %d\n", i);
 	}
 
 	return 0;
