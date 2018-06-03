@@ -63,8 +63,9 @@ void emit2 (K2* key, V2* value, void* context){
 void emit3 (K3* key, V3* value, void* context){
     OutputPair k3_pair = std::pair(&key, &value);
     auto * tc = (ThreadContext *) context;
-//    tc->outputVec.push_back(k3_pair); //todo fix
-    tc->outputVec->push_back(k3_pair);
+    tc->barrier->reducelock();
+    tc->outputVec->push_back(k3_pair); //todo create independent output mutex lock.
+    tc->barrier->reduceUnlock();
 }
 
 //todo check for error return handles - maybe i miss-handled some of them
