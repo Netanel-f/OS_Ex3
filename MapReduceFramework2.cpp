@@ -90,9 +90,9 @@ void emit2 (K2* key, V2* value, void* context){
  * @param context
  */
 void emit3 (K3* key, V3* value, void* context){
-  OutputPair k3_pair = std::pair(&key, &value);
-  auto * context_pointer = (data *) context;
-  context_pointer->outputVec.push_back(k3_pair);
+    OutputPair k3_pair = std::pair(&key, &value);
+    auto * tc = (ThreadContext *) context;
+    tc->outputVec.push_back(k3_pair);
 }
 
 //todo check for error return handles - maybe i miss-handled some of them
@@ -178,6 +178,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     // main thread-reduce
     tReduce(threadContexts);
 
+
     // initialise data
 
   // call mainFlow()
@@ -219,7 +220,7 @@ void * threadFlow1(void * arg) {
 }
 
 void * tReduce(void * arg) {
-    ThreadContext * tc = (ThreadContext*) arg;
+    ThreadContext *tc = (ThreadContext *) arg;
 
     //reducing
     bool keepReduce = true;
@@ -230,12 +231,12 @@ void * tReduce(void * arg) {
         int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < tc->inputVec->size()) {
             tc->client->reduce(tc->shuffleVector->pop_back(), tc);
-            tc->barrier->reduceUnlock();
         } else {
-            tc->barrier->reduceUnlock();
-            break;
+            keepReduce = false;
         }
+        tc->barrier->reduceUnlock();
     }
+    if (tc->threadID != 0) { pthread_exit(0); }
 }
 
 
