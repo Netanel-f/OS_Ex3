@@ -180,6 +180,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
                 // feeding shared vector and increasing semaphore.
                 threadContexts[0].shuffleVector->push_back(curKeyVec);
+
                 sem_post(threadContexts[0].semaphore_arg);
 
                 barrier.shuffleUnlock(); // unblock mutex
@@ -284,6 +285,6 @@ void check_for_error(int & returnVal, const std::string &message) {
     std::cerr << title << message << "\n";
 
     // exit
-    exit(1);  // todo is this what we want?
+    exit(1);  // todo is this what we want for errors?
 
 }
