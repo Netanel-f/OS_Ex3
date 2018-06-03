@@ -206,7 +206,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 ////===============================  Helper Functions ==============================================
 
 void * threadFlow(void * arg) {
-    ThreadContext * tc = (auto) arg;
+    auto tc = (ThreadContext *) arg;
 
     //// Map phase
     bool shouldContinueMapping = true;
@@ -251,7 +251,7 @@ void threadReduce(ThreadContext * tc) {
 
         int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < (tc->inputVec->size())) {
-            std::vector * pairs = &(tc->shuffleVector->back());
+            std::vector<IntermediatePair> * pairs = &(tc->shuffleVector->back());
             tc->shuffleVector->pop_back();
             tc->client->reduce(pairs, tc);
         } else {
@@ -270,7 +270,7 @@ bool areEqualK2(K2& a, K2& b){
 }
 
 int exitFramework(ThreadContext * tc) {
-    delete (*(tc->barrier));
+    delete (tc->barrier);
     sem_destroy(tc->semaphore_arg);
 
 }
