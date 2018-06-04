@@ -1,5 +1,8 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.8.4)
 set (CMAKE_CXX_STANDARD 11)
+
+project(ex3)
+
 
 add_executable (big_client test_clients/bigClient.cpp
         MapReduceFramework.h MapReduceFramework.cpp MapReduceClient.h Barrier.cpp Barrier.h)

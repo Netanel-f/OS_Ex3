@@ -18,7 +18,8 @@
 struct ThreadContext {
     // unique fields
     int threadID;
-    IntermediateVec* threadIndVec;
+//    IntermediateVec* threadIndVec; //todo check
+//    IntermediateVec* threadIndVec; //todo check
 
     // shared data among threads
     const MapReduceClient* client;
@@ -28,6 +29,7 @@ struct ThreadContext {
     sem_t * semaphore_arg;
     Barrier* barrier;
     std::vector<IntermediateVec> * shuffleVector;
+    std::vector<IntermediateVec> * allIndVecs;
 };
 
 
@@ -54,7 +56,9 @@ void deleteThreadIndVec(ThreadContext * tc);
 void emit2 (K2* key, V2* value, void* context){
     auto tc = (ThreadContext *) context;
     IntermediatePair k2_pair = std::make_pair(key, value);
-    tc->threadIndVec->push_back(k2_pair);    // todo check mem-leaks.
+    //tc->threadIndVec->push_back(k2_pair);    // todo check mem-leaks.
+    //tc->threadIndVec->push_back(k2_pair);    // todo check mem-leaks.
+    tc->allIndVecs[tc->threadID].push_back(k2_pair);
 }
 
 /**
@@ -88,8 +92,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     Barrier barrier(multiThreadLevel);
     std::atomic<unsigned int> atomic_counter(0);
     std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
-    std::vector<std::vector<IntermediateVec>> allInThreadVecs =
-            std::vector<std::vector<IntermediateVec>>();
+    std::vector<IntermediateVec> allInThreadVecs = std::vector<IntermediateVec>();
 
     // init semaphore so other threads would wait to it.
     sem_t * sem = new sem_t;
@@ -99,8 +102,13 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     for (int i = 0; i < multiThreadLevel; ++i) {
 //        IntermediateVec threadIndVec = IntermediateVec(); //todo bug this ends up being null
-//        threadContexts[i] = {i, IntermediateVec(), &client, &inputVec, &outputVec,
+//        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
 //                             &atomic_counter, sem, &barrier, &shufVec};
+
+        IntermediateVec *threadIndVec = new IntermediateVec();
+
+        threadContexts[i] = {i,&client, &inputVec, &outputVec,
+                             &atomic_counter, sem, &barrier, &shufVec, &allInThreadVecs};
 
 //        IntermediateVec *threadIndVec = new IntermediateVec();
 //        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
@@ -132,9 +140,11 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
         for (int i = 0; i < multiThreadLevel ; ++i) {
 
             //ensure not empty
-            if (!threadContexts[i].threadIndVec->empty()) {
+            //if (!threadContexts[i].threadIndVec->empty()) { //todo J Fix1
+            if (!allInThreadVecs[i].empty()) {
 
-                K2 *thisKey = threadContexts[i].threadIndVec->back().first;
+                //K2 *thisKey = threadContexts[i].threadIndVec->back().first; //todo J Fix1
+                K2 *thisKey = allInThreadVecs[i].back().first;
 
                 if(allEmptySoFar){
                     // take max (back)
@@ -164,19 +174,20 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             for (int i = 0; i < multiThreadLevel; ++i) {
 
                 //ensure not empty
-                if (!threadContexts[i].threadIndVec->empty()) {
+                //if (!threadContexts[i].threadIndVec->empty()) { ///todo J Fix1
+                if (!allInThreadVecs[i].empty()) {
 
-                    K2 *thisKey = threadContexts[i].threadIndVec->back().first;
+                    K2 *thisKey = allInThreadVecs[i].back().first;
 
                     if (areEqualK2(*thisKey, *curKeyToMake)) {
 
                         NoneEqualSoFar = false;
 
                         // add it to our vector
-                        curKeyVec.push_back( ( threadContexts[i].threadIndVec->back() ) );
+                        curKeyVec.push_back( ( allInThreadVecs[i].back() ) );
 
                         // erase it from the vector
-                        threadContexts[i].threadIndVec->pop_back();
+                        allInThreadVecs[i].pop_back();
 
                     }
                 }
@@ -220,6 +231,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
 void * threadFlow(void * arg) {
     auto tc = (ThreadContext *) arg;
+    int tid = tc->threadID;
 
     //// Map phase
     bool shouldContinueMapping = true;
@@ -239,8 +251,8 @@ void * threadFlow(void * arg) {
     }
 
     //// Sort phase
-    if (!tc->threadIndVec->empty()) {
-        std::sort(tc->threadIndVec->begin(), tc->threadIndVec->end());
+    if (!tc->allIndVecs[tid].empty()) {
+        std::sort(tc->allIndVecs[tid].begin(), tc->allIndVecs[tid].end());
     }
 
     // todo check if we can use the provided Barrier class
@@ -282,10 +294,10 @@ bool areEqualK2(K2& a, K2& b){
     // neither a<b nor b<a means a==b
     return !((a<b)||(b<a));
 }
-
-void deleteThreadIndVec(ThreadContext * tc) {
-    delete (tc->threadIndVec);
-}
+//
+//void deleteThreadIndVec(ThreadContext * tc) {
+//    delete (tc->threadIndVec);
+//}
 
 void exitFramework(ThreadContext * tc) {
     delete (tc->barrier);
