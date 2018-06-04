@@ -4,6 +4,7 @@
 #include <iostream>
 #include <semaphore.h>
 
+
 #include "MapReduceClient.h"
 #include "MapReduceFramework.h"
 #include "Barrier.h"
@@ -37,6 +38,8 @@ void threadReduce(ThreadContext * tc);
 bool areEqualK2(K2 &a, K2 &b);
 void check_for_error(int & returnVal, const std::string &message);
 void exitFramework(ThreadContext * tc);
+void deleteThreadIndVec(ThreadContext * tc);
+
 
 
 //// ============================ framework functions ==============================================
@@ -85,6 +88,8 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     Barrier barrier(multiThreadLevel);
     std::atomic<unsigned int> atomic_counter(0);
     std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
+    std::vector<std::vector<IntermediateVec>> allInThreadVecs =
+            std::vector<std::vector<IntermediateVec>>();
 
     // init semaphore so other threads would wait to it.
     sem_t * sem = new sem_t;
@@ -93,9 +98,13 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
 
     for (int i = 0; i < multiThreadLevel; ++i) {
-        IntermediateVec threadIndVec = IntermediateVec();
-        threadContexts[i] = {i, &threadIndVec, &client, &inputVec, &outputVec,
-                             &atomic_counter, sem, &barrier, &shufVec};
+//        IntermediateVec threadIndVec = IntermediateVec(); //todo bug this ends up being null
+//        threadContexts[i] = {i, IntermediateVec(), &client, &inputVec, &outputVec,
+//                             &atomic_counter, sem, &barrier, &shufVec};
+
+//        IntermediateVec *threadIndVec = new IntermediateVec();
+//        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
+//                             &atomic_counter, sem, &barrier, &shufVec};
     }
 
     for (int i = 1; i < multiThreadLevel; ++i) {
@@ -197,6 +206,11 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     threadReduce(threadContexts);
 
     //finish
+
+//    for (int i = 0; i < multiThreadLevel; ++i) { //todo J depends if we use new for inthreadvec
+//        deleteThreadIndVec(&threadContexts[i]);
+//    }
+
     //todo implement main thread exit? delete object and release memory.
     exitFramework(threadContexts);
 
@@ -267,6 +281,10 @@ bool areEqualK2(K2& a, K2& b){
 
     // neither a<b nor b<a means a==b
     return !((a<b)||(b<a));
+}
+
+void deleteThreadIndVec(ThreadContext * tc) {
+    delete (tc->threadIndVec);
 }
 
 void exitFramework(ThreadContext * tc) {
