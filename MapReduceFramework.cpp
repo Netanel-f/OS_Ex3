@@ -108,7 +108,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     //// Shuffle phase
 
     // init atomic to track output vec
-    threadContexts[0].atomic_counter = 0;
+    (*threadContexts[0].atomic_counter) = 0;
 
     while (true){
         // for each key
@@ -251,7 +251,7 @@ void threadReduce(ThreadContext * tc) {
 
         unsigned int old_atom = (*(tc->atomic_counter))++;
         if (old_atom < (tc->inputVec->size())) {
-            std::vector<IntermediatePair> * pairs = &(tc->shuffleVector->back());
+            IntermediateVec * pairs = &(tc->shuffleVector->back());
             tc->shuffleVector->pop_back();
             tc->client->reduce(pairs, tc);
         } else {
