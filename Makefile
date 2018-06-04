@@ -3,7 +3,7 @@ CXX = g++
 
 INCS=-I.
 CFLAGS = -Wall -std=c++11 -g $(INCS)
-CXXFLAGS = -Wall -std=c++11 -g $(INCS)
+CXXFLAGS = -Wall -pthread -std=c++11 -g $(INCS)
 
 
 TAR = tar
