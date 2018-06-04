@@ -88,11 +88,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     Barrier barrier(multiThreadLevel);
     std::atomic<unsigned int> atomic_counter(0);
     std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
-    std::vector<std::vector<IntermediateVec>> allInThreadVecs =
-            std::vector<std::vector<IntermediateVec>>();
 
     // init semaphore so other threads would wait to it.
-    sem_t * sem = new sem_t;
+    auto * sem = new sem_t;
     int semInitValue = sem_init(sem, 0, 0);    //todo check sem initialization.
     check_for_error(semInitValue, "Failed to initialize semaphore.");
 
@@ -101,6 +99,10 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 //        IntermediateVec threadIndVec = IntermediateVec(); //todo bug this ends up being null
 //        threadContexts[i] = {i, IntermediateVec(), &client, &inputVec, &outputVec,
 //                             &atomic_counter, sem, &barrier, &shufVec};
+
+        auto *threadIndVec = new IntermediateVec();
+        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
+                             &atomic_counter, sem, &barrier, &shufVec};
 
 //        IntermediateVec *threadIndVec = new IntermediateVec();
 //        threadContexts[i] = {i, threadIndVec, &client, &inputVec, &outputVec,
@@ -189,9 +191,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                 barrier.shuffleLock();   // blocking the mutex
 
                 // feeding shared vector and increasing semaphore.
-                threadContexts[0].shuffleVector->push_back(curKeyVec); //todo J why zero?
+                threadContexts[0].shuffleVector->push_back(curKeyVec);
 
-                sem_post(threadContexts[0].semaphore_arg);  //todo J why zero?
+                sem_post(threadContexts[0].semaphore_arg);
 
                 barrier.shuffleUnlock(); // unblock mutex
 
@@ -207,9 +209,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     //finish
 
-//    for (int i = 0; i < multiThreadLevel; ++i) { //todo J depends if we use new for inthreadvec
-//        deleteThreadIndVec(&threadContexts[i]);
-//    }
+    for (int i = 0; i < multiThreadLevel; ++i) {
+        deleteThreadIndVec(&threadContexts[i]);
+    }
 
     //todo implement main thread exit? delete object and release memory.
     exitFramework(threadContexts);
