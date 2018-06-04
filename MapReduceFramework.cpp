@@ -239,7 +239,7 @@ void * threadFlow(void * arg) {
         threadReduce(tc);
     }
     // main thread (ID==0) continues without waiting to shuffle.
-    //todo return
+    return nullptr; //todo need to check properly
 }
 
 void threadReduce(ThreadContext * tc) {
