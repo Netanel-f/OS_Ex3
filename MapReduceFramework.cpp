@@ -36,6 +36,7 @@ void * threadFlow(void * arg);
 void threadReduce(ThreadContext * tc);
 bool areEqualK2(K2 &a, K2 &b);
 void check_for_error(int & returnVal, const std::string &message);
+void exitFramework(ThreadContext * tc);
 
 
 //// ============================ framework functions ==============================================
@@ -86,7 +87,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     std::vector<IntermediateVec> shufVec = std::vector<IntermediateVec>();
 
     // init semaphore so other threads would wait to it.
-    sem_t * sem;
+    sem_t * sem = new sem_t;
     int semInitValue = sem_init(sem, 0, 0);    //todo check sem initialization.
     check_for_error(semInitValue, "Failed to initialize semaphore.");
 
@@ -197,6 +198,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
     //finish
     //todo implement main thread exit? delete object and release memory.
+    exitFramework(threadContexts);
 
 }
 
