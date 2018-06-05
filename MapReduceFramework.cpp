@@ -24,6 +24,7 @@ struct ThreadContext {
     const MapReduceClient* client;
     const InputVec* inputVec;
     OutputVec* outputVec;
+    bool * stillShuffling;
     std::atomic<unsigned int>* atomic_counter;
     sem_t * semaphore_arg;
     Barrier* barrier;
@@ -87,6 +88,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     pthread_t threads[multiThreadLevel];
     ThreadContext threadContexts[multiThreadLevel];
     Barrier barrier(multiThreadLevel);
+    bool everydayImShuffling = true;
     std::atomic<unsigned int> atomic_counter(0);
     std::vector<IntermediateVec> threadsVectors(multiThreadLevel, IntermediateVec(0));
     std::vector<IntermediateVec> shuffleVector(0);
@@ -98,7 +100,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
 
     for (int i = 0; i < multiThreadLevel; ++i) {
-        threadContexts[i] = {i, &client, &inputVec, &outputVec,
+        threadContexts[i] = {i, &client, &inputVec, &outputVec, &everydayImShuffling,
                              &atomic_counter, sem, &barrier, &threadsVectors, &shuffleVector};
     }
 
@@ -114,12 +116,16 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     shuffle(&threadContexts[0], multiThreadLevel);
 
     // main thread-reduce
-
+    for (int i=0; i< multiThreadLevel; i++) {
+        sem_post(threadContexts[0].semaphore_arg);
+    }
     threadReduce(threadContexts);
 
-    // main thread will wait for all other threads to terminate
+
+        // main thread will wait for all other threads to terminate
     for (int i = 1; i < multiThreadLevel; ++i) {
         // check for error of pthread
+        if (DEBUG) { printf("main thread join tid %d ", i); }
         pthread_join(threads[i], NULL);
     }
 
@@ -163,7 +169,7 @@ void * threadFlow(void * arg) {
 
     // if not main thread, wait for semaphore to reduce
     if (tc->threadID != 0) {
-//        sem_wait(tc->semaphore_arg);
+        sem_wait(tc->semaphore_arg);
         threadReduce(tc);
     }
     // main thread (ID==0) continues without waiting to shuffle.
@@ -244,33 +250,72 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
         }
 
     }
+    *tc->stillShuffling = false;
 }
 
 
 
 void threadReduce(ThreadContext * tc) {
 
-    //reducing
-    bool shouldContinueReducing = true;
-    while (shouldContinueReducing) {        //todo check properly
-        sem_wait(tc->semaphore_arg);
-        unsigned int old_atom = (*(tc->atomic_counter))--;
+    while (true) {
 
-        if (DEBUG) { printf("tid %d old atom%d\n", tc->threadID, old_atom); }
+        int old_atom = (*(tc->atomic_counter));
+        if (old_atom <= 0) {
+            break;
+        }
 
-        if (tc->threadID == 0 && old_atom < 1) { break; }
         tc->barrier->shuffleLock();
-
-
+        if (DEBUG) { printf("tid %d reducing\n", tc->threadID); }
         IntermediateVec * pairs = &(tc->shuffleVector->back());
+
         tc->client->reduce(pairs, tc);
         tc->shuffleVector->pop_back();
 
+        old_atom = (*(tc->atomic_counter))--;
         tc->barrier->shuffleUnlock();
-        if (old_atom <= 1) {
-            shouldContinueReducing = false;
+
+        if (*tc->stillShuffling) {
+            sem_wait(tc->semaphore_arg);
+        } else {
+            tc->barrier->shuffleLock();
+            if (tc->shuffleVector->empty()) {
+                tc->barrier->shuffleUnlock();
+                break;
+            }
+            tc->barrier->shuffleUnlock();
+            sem_wait(tc->semaphore_arg);
         }
     }
+//
+//
+//
+//    bool shouldContinueReducing = true;
+//    while (shouldContinueReducing) {        //todo check properly
+//        if (tc->threadID == 0) {
+//            int oldat = (*(tc->atomic_counter))--;
+//            if (oldat < 1) { break; }
+//        }
+////        sem_wait(tc->semaphore_arg);
+////        unsigned int old_atom = (*(tc->atomic_counter))--;
+//
+////        if (DEBUG) { printf("tid %d old atom%d\n", tc->threadID, old_atom); }
+//
+////        if (tc->threadID == 0 && old_atom < 1) { break; }
+//        tc->barrier->shuffleLock();
+//
+//
+//        IntermediateVec * pairs = &(tc->shuffleVector->back());
+//        tc->client->reduce(pairs, tc);
+//        tc->shuffleVector->pop_back();
+//
+//        unsigned int old_atom = (*(tc->atomic_counter))--;
+//        if (DEBUG) { printf("tid %d old atom%d\n", tc->threadID, old_atom); }
+//        tc->barrier->shuffleUnlock();
+//
+//        if (old_atom <= 1) {
+//            shouldContinueReducing = false;
+//        }
+//    }
 
     if (tc->threadID != 0) {
         printf("tid %d is exited\n", tc->threadID);
