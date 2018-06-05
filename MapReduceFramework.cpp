@@ -154,7 +154,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
         // if we have not found a non-empty vector - all have been cleared.
         if(allEmptySoFar) break;
 
-        bool NoneEqualSoFar = true;
+
         // this is our current key
         curKeyToMake = curMax;
         // make a vector of this key
@@ -162,7 +162,10 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
         while(true) {
 
-            // iterate through thread's vectors
+            bool NoneEqualSoFar = true;
+
+
+            // iterate through thread's vectors, and take each back if it is equal
             for (int i = 0; i < multiThreadLevel; ++i) {
 
                 //ensure not empty
@@ -184,7 +187,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                 }
             }
 
-            // if we have found no equal at the back of any vector, we have finished with this key
+            // if we have found no equal at the back of *any* vector, we have finished with this key
             if(NoneEqualSoFar) {
                 //todo send vector to a thread
 
