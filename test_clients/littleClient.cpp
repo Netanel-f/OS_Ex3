@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 	inputVec.push_back({nullptr, &s13});
 	inputVec.push_back({nullptr, &s14});
 
-	runMapReduceFramework(client, inputVec, outputVec, 5);
+	runMapReduceFramework(client, inputVec, outputVec, 1);
 
 	for (OutputPair& pair: outputVec) {
 		bool key = ((const Kbool*)pair.first)->key;

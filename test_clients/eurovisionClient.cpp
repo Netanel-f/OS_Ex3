@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
     // TODO - enter your path to "new_clients/points_awarded.in"
     process_data("/cs/+/usr/hadasj/os/ex3/new_clients/points_awarded.in", &inputVec);
 
-    runMapReduceFramework(client, inputVec, outputVec, 40);
+    runMapReduceFramework(client, inputVec, outputVec, 1);
 
     printf("Total Eurovision wins 1975-2016:\n");
     for (OutputPair& pair: outputVec) {
