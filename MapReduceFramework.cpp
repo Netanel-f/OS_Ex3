@@ -116,9 +116,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     shuffle(&threadContexts[0], multiThreadLevel);
 
     // main thread-reduce
-    for (int i=0; i< multiThreadLevel; i++) {
-        sem_post(threadContexts[0].semaphore_arg);
-    }
+//    for (int i=0; i< multiThreadLevel; i++) {
+//        sem_post(threadContexts[0].semaphore_arg);
+//    }
     threadReduce(threadContexts);
 
 
@@ -179,87 +179,144 @@ void * threadFlow(void * arg) {
     return nullptr; //todo need to check properly
 }
 
+//void shuffle(ThreadContext * tc, int multiThreadLevel) {
+//    if (DEBUG) { printf("tid %d is entering shuffle\n", tc->threadID); }
+//    while (true){
+//
+//      //// find max key
+//        bool allEmptySoFar = true;
+//        K2 *curMax = {};
+//        // iterate through thread's vectors, and find max at back
+//        for (int i = 0; i < multiThreadLevel ; ++i) {
+//            //ensure not empty
+//            if (!tc->threadsVectors->at(i).empty()) {
+//                K2 *thisKey = tc->threadsVectors->at(i).back().first;
+//                if(allEmptySoFar){
+//                  allEmptySoFar = false;
+//                    // take max (back)
+//                    curMax = thisKey;
+//                }else if(*curMax<*thisKey){
+//                    // update max if larger
+//                    curMax = thisKey;
+//                }
+//            }
+//        }
+//
+//        //// exit condition
+//        // if we have not found a non-empty vector after iterating - all have been cleared.
+//        if(allEmptySoFar) break;
+//
+//        //// make vector
+//        IntermediateVec curKeyVec(0);
+//        while(true) {
+//            // iterate through thread's vectors
+//            for (int i = 0; i < multiThreadLevel; ++i) {
+//                //ensure not empty
+//                if (!tc->threadsVectors->at(i).empty()) {
+//                  bool mightHaveMoreMax;
+//                  do{
+//                    K2 *thisKey = tc->threadsVectors->at(i).back().first;
+//                    if (areEqualK2(*thisKey, *curMax)) {
+//                      // if max is found at the back, there might be more
+//                      mightHaveMoreMax = true;
+//                      // add it to our vector
+//                      curKeyVec.push_back((tc->threadsVectors->at(i).back()));
+//                      // erase it from the vector
+//                      tc->threadsVectors->at(i).pop_back();
+//                    }else{
+//                      // if top is not max, we are done with ths vector
+//                      mightHaveMoreMax = false;
+//                    }
+//                  }while(mightHaveMoreMax);
+//
+//                }
+//            }
+//
+//            // we have assembled a vector of all curMax
+//
+//            //todo send vector to a thread
+//
+//            tc->barrier->shuffleLock();   // blocking the mutex
+//
+//            // feeding shared vector and increasing semaphore.
+//            tc->shuffleVector->push_back(curKeyVec);
+//            int atom_up = (*(tc->atomic_counter))++;  //todo we might need to remove. that depends on reduce design
+//            if (DEBUG) { printf("shuffle old_atom is %d\n", atom_up);}
+//
+//            sem_post(tc->semaphore_arg);
+//
+//            tc->barrier->shuffleUnlock(); // unblock mutex
+//
+//            // break, and find the next key.
+//            break;
+//
+//        }
+//
+//    }
+//    *tc->stillShuffling = false;
+//}
+
 void shuffle(ThreadContext * tc, int multiThreadLevel) {
-    if (DEBUG) { printf("tid %d is entering shuffle\n", tc->threadID); }
-    while (true){
 
-      //// find max key
-        bool allEmptySoFar = true;
-        K2 *curMax = {};
-        // iterate through thread's vectors, and find max at back
-        for (int i = 0; i < multiThreadLevel ; ++i) {
-            //ensure not empty
+    bool continueShuffle = true;
+
+    // Looping to create
+    while (continueShuffle) {
+        int maxKeyThreadId = -1;
+        K2 * key = nullptr;
+
+        // Finding the first not empty thread Intermediate Vector.
+        for (int i = 0; i < multiThreadLevel; i++) {
             if (!tc->threadsVectors->at(i).empty()) {
-                K2 *thisKey = tc->threadsVectors->at(i).back().first;
-                if(allEmptySoFar){
-                  allEmptySoFar = false;
-                    // take max (back)
-                    curMax = thisKey;
-                }else if(*curMax<*thisKey){
-                    // update max if larger
-                    curMax = thisKey;
-                }
+                maxKeyThreadId = i;
+                key = tc->threadsVectors->at(i).back().first;
+                break;
             }
+            //todo N:check if code can reach to the point of the last thread and it's empty.
         }
 
-        //// exit condition
-        // if we have not found a non-empty vector after iterating - all have been cleared.
-        if(allEmptySoFar) break;
-
-        //// make vector
-        IntermediateVec curKeyVec(0);
-        while(true) {
-            // iterate through thread's vectors
-            for (int i = 0; i < multiThreadLevel; ++i) {
-                //ensure not empty
-                if (!tc->threadsVectors->at(i).empty()) {
-                  bool mightHaveMoreMax;
-                  do{
-                    K2 *thisKey = tc->threadsVectors->at(i).back().first;
-                    if (areEqualK2(*thisKey, *curMax)) {
-                      // if max is found at the back, there might be more
-                      mightHaveMoreMax = true;
-                      // add it to our vector
-                      curKeyVec.push_back((tc->threadsVectors->at(i).back()));
-                      // erase it from the vector
-                      tc->threadsVectors->at(i).pop_back();
-                    }else{
-                      // if top is not max, we are done with ths vector
-                      mightHaveMoreMax = false;
-                    }
-                  }while(mightHaveMoreMax);
-
-                }
-            }
-
-            // we have assembled a vector of all curMax
-
-            //todo send vector to a thread
-
-            tc->barrier->shuffleLock();   // blocking the mutex
-
-            // feeding shared vector and increasing semaphore.
-            tc->shuffleVector->push_back(curKeyVec);
-            int atom_up = (*(tc->atomic_counter))++;  //todo we might need to remove. that depends on reduce design
-            if (DEBUG) { printf("shuffle old_atom is %d\n", atom_up);}
-
-            sem_post(tc->semaphore_arg);
-
-            tc->barrier->shuffleUnlock(); // unblock mutex
-
-            // break, and find the next key.
+        // if didn't find non-empty thread Vector
+        if (maxKeyThreadId == -1) {
+            continueShuffle = false;
             break;
-
         }
 
+        // Finding the max key
+        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
+            if (!tc->threadsVectors->at(i).empty() &&
+                !areEqualK2(*key, *tc[i].threadsVectors->at(i).back().first) &&
+                (key < tc->threadsVectors->at(i).back().first)) {
+                    maxKeyThreadId = i;
+                    key = tc->threadsVectors->at(i).back().first;
+            }
+        }
+
+        IntermediateVec currentKeyIndVec(0);
+        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
+            // Popping matching k2pairs from all thread's vectors.
+
+            while (!tc->threadsVectors->at(i).empty() &&
+                   areEqualK2(*tc->threadsVectors->at(i).back().first, *key)) {
+                // Popping matching k2 pairs of current thread with tid i
+
+                currentKeyIndVec.push_back((tc->threadsVectors->at(i).back()));
+                tc->threadsVectors->at(i).pop_back();
+            }
+        }
+
+        tc->barrier->shuffleLock();   // blocking the mutex
+
+        // feeding shared vector and increasing semaphore.
+        tc->shuffleVector->emplace_back(currentKeyIndVec);
+        sem_post(tc->semaphore_arg);
+        (*(tc->atomic_counter))++;
+        tc->barrier->shuffleUnlock();
     }
     *tc->stillShuffling = false;
 }
 
 
-
 void threadReduce(ThreadContext * tc) {
-
     while (true) {
 
         int old_atom = (*(tc->atomic_counter));
@@ -268,7 +325,7 @@ void threadReduce(ThreadContext * tc) {
         }
 
         tc->barrier->shuffleLock();
-        if (DEBUG) { printf("tid %d reducing\n", tc->threadID); }
+        if (DEBUG) { printf("tid %d is reduce loop and cur atom is: %d \n", tc->threadID), old_atom; }
         IntermediateVec * pairs = &(tc->shuffleVector->back());
 
         tc->client->reduce(pairs, tc);
