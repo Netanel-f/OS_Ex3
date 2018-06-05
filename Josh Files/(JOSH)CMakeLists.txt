@@ -16,4 +16,4 @@ add_executable (sample_client SuppliedFiles/sampleclient/SampleClient.cpp
 TARGET_LINK_LIBRARIES(little_client pthread)
 TARGET_LINK_LIBRARIES(big_client pthread)
 TARGET_LINK_LIBRARIES(euro_client pthread)
-TARGET_LINK_LIBRARIES(euro_client pthread)
+TARGET_LINK_LIBRARIES(sample_client pthread)
