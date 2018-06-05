@@ -11,14 +11,14 @@
 
 
 //// ============================   defines and const ==============================================
-
+#define DEBUG true
+//todo delete define
 
 //// ===========================   typedefs & structs ==============================================
 
 struct ThreadContext {
     // unique fields
     int threadID;
-//    IntermediateVec * threadVec;
 
     // shared data among threads
     const MapReduceClient* client;
@@ -102,17 +102,13 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     }
 
     for (int i = 1; i < multiThreadLevel; ++i) {
-        pthread_create(threads + i, nullptr, threadFlow, threadContexts + i);
+        pthread_create(threads + i, nullptr, threadFlow, threadContexts + i); //todo error check
     }
 
     //main thread should map and sort as well.
     threadFlow(threadContexts);
 
     //// Shuffle phase
-
-    // init atomic to track output vec
-    (*threadContexts[0].atomic_counter) = 0;
-
     shuffle(&threadContexts[0], multiThreadLevel);
 
     // main thread-reduce
@@ -125,10 +121,6 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     }
 
     //finish
-
-//    for (int i = 0; i < multiThreadLevel; ++i) { //todo J depends if we use new for inthreadvec
-//        deleteThreadIndVec(&threadContexts[i]);
-//    }
 
     //todo implement main thread exit? delete object and release memory.
     exitFramework(threadContexts);
@@ -162,7 +154,6 @@ void * threadFlow(void * arg) {
                   tc->threadsVectors->at(tc->threadID).end());
     }
 
-    // todo check if we can use the provided Barrier class
     // setting thread to wait at barrier.
     tc->barrier->barrier();
 
@@ -177,161 +168,105 @@ void * threadFlow(void * arg) {
 
 void shuffle(ThreadContext * tc, int multiThreadLevel) {
     while (true){
-    // for each key
-    K2 *curKeyToMake;
+        // for each key
+        K2 *curKeyToMake;
 
-    // find max key
+        // find max key
 
-    bool allEmptySoFar = true;
-    K2 *curMax = {};
+        bool allEmptySoFar = true;
+        K2 *curMax = {};
 
-    // iterate through thread's vectors, and find max at back
-    for (int i = 0; i < multiThreadLevel ; ++i) {
-
-        //ensure not empty
-        if (!tc->threadsVectors->at(i).empty()) {
-
-            K2 *thisKey = tc->threadsVectors->at(i).back().first;
-
-            if(allEmptySoFar){
-                // take max (back)
-                curMax = thisKey;
-                allEmptySoFar = false;
-
-            }else if(*curMax<*thisKey){
-                // update max if larger
-                curMax = thisKey;
-            }
-
-        }
-    }
-
-    // if we have not found a non-empty vector after iterating - all have been cleared.
-    if(allEmptySoFar) break;
-
-
-    // this is our current key
-    curKeyToMake = curMax;
-    // make a vector of this key
-    IntermediateVec curKeyVec;
-
-    while(true) {
-
-        bool NoneEqualSoFar = true;
-
-        // iterate through thread's vectors
-        for (int i = 0; i < multiThreadLevel; ++i) {
+        // iterate through thread's vectors, and find max at back
+        for (int i = 0; i < multiThreadLevel ; ++i) {
 
             //ensure not empty
             if (!tc->threadsVectors->at(i).empty()) {
 
                 K2 *thisKey = tc->threadsVectors->at(i).back().first;
 
-                if (areEqualK2(*thisKey, *curKeyToMake)) {
+                if(allEmptySoFar){
+                    // take max (back)
+                    curMax = thisKey;
+                    allEmptySoFar = false;
 
-                    NoneEqualSoFar = false;
-
-                    // add it to our vector
-                    curKeyVec.push_back( ( tc->threadsVectors->at(i).back() ) );
-
-                    // erase it from the vector
-                    tc->threadsVectors->at(i).pop_back();
-
+                }else if(*curMax<*thisKey){
+                    // update max if larger
+                    curMax = thisKey;
                 }
+
             }
         }
 
-        // if we have found no equal at the back of any vector, we have finished with this key
-        if(NoneEqualSoFar) {
-            //todo send vector to a thread
+        // if we have not found a non-empty vector after iterating - all have been cleared.
+        if(allEmptySoFar) break;
 
-            tc->barrier->shuffleLock();   // blocking the mutex
 
-            // feeding shared vector and increasing semaphore.
-            tc->shuffleVector->push_back(curKeyVec); //todo J why zero?
+        // this is our current key
+        curKeyToMake = curMax;
+        // make a vector of this key
+        IntermediateVec curKeyVec;
 
-            sem_post(tc->semaphore_arg);  //todo J why zero?
+        while(true) {
 
-            tc->barrier->shuffleUnlock(); // unblock mutex
+            bool NoneEqualSoFar = true;
 
-            // break, and find the next key.
-            break;
+            // iterate through thread's vectors
+            for (int i = 0; i < multiThreadLevel; ++i) {
+
+                //ensure not empty
+                if (!tc->threadsVectors->at(i).empty()) {
+
+                    K2 *thisKey = tc->threadsVectors->at(i).back().first;
+
+                    if (areEqualK2(*thisKey, *curKeyToMake)) {
+
+                        NoneEqualSoFar = false;
+
+                        // add it to our vector
+                        curKeyVec.push_back( ( tc->threadsVectors->at(i).back() ) );
+
+                        // erase it from the vector
+                        tc->threadsVectors->at(i).pop_back();
+
+                    }
+                }
+            }
+
+            // if we have found no equal at the back of any vector, we have finished with this key
+            if(NoneEqualSoFar) {
+                //todo send vector to a thread
+
+                tc->barrier->shuffleLock();   // blocking the mutex
+
+                // feeding shared vector and increasing semaphore.
+                tc->shuffleVector->push_back(curKeyVec); //todo J why zero?
+
+                sem_post(tc->semaphore_arg);  //todo J why zero?
+
+                tc->barrier->shuffleUnlock(); // unblock mutex
+
+                // break, and find the next key.
+                break;
+            }
         }
-    }
 
+    }
 }
-}
-//void shuffle(ThreadContext * tc, int multiThreadLevel) {
-//
-//    bool continueShuffle = true;
-//
-//    // Looping to create
-//    while (continueShuffle) {
-//        int maxKeyThreadId = -1;
-//        K2 * key = nullptr;
-//
-//        // Finding the first not empty thread Intermediate Vector.
-//        for (int i = 0; i < multiThreadLevel; i++) {
-//            if (!tc->threadsVectors->at(i).empty()) {
-//                maxKeyThreadId = i;
-//                key = tc->threadsVectors->at(i).back().first;
-//                break;
-//            }
-//            //todo N:check if code can reach to the point of the last thread and it's empty.
-//        }
-//
-//        // if didn't find non-empty thread Vector
-//        if (maxKeyThreadId == -1) {
-//            continueShuffle = false;
-//            break;
-//        }
-//
-//        // Finding the max key
-//        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
-//            if (!tc->threadsVectors->at(i).empty() &&
-//                !areEqualK2(*key, *tc[i].threadsVectors->at(i).back().first) &&
-//                (key < tc->threadsVectors->at(i).back().first)) {
-//                    maxKeyThreadId = i;
-//                    key = tc->threadsVectors->at(i).back().first;
-//            }
-//        }
-//
-//        IntermediateVec currentKeyIndVec(0);
-//        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
-//            // Popping matching k2pairs from all thread's vectors.
-//
-//            while (!tc->threadsVectors->at(i).empty() &&
-//                   areEqualK2(*tc->threadsVectors->at(i).back().first, *key)) {
-//                // Popping matching k2 pairs of current thread with tid i
-//
-//                currentKeyIndVec.push_back((tc->threadsVectors->at(i).back()));
-//                tc->threadsVectors->at(i).pop_back();
-//            }
-//        }
-//
-//        tc->barrier->shuffleLock();   // blocking the mutex
-//
-//        // feeding shared vector and increasing semaphore.
-//        tc->shuffleVector->emplace_back(currentKeyIndVec);
-//        sem_post(tc->semaphore_arg);
-//        (*(tc->atomic_counter))++;
-//        tc->barrier->shuffleUnlock();
-//    }
-//}
+
+
 
 void threadReduce(ThreadContext * tc) {
-//    unsigned int old_atom = (*(tc->atomic_counter))--;
 
     //reducing
     bool shouldContinueReducing = true;
     while (shouldContinueReducing) {        //todo check properly
 
-//        sem_wait(tc->semaphore_arg);
         unsigned int old_atom = (*(tc->atomic_counter))--;
-//        printf("tid %d old atom%d\n", tc->threadID, old_atom); //todo DEBUG Print
+
+        if (DEBUG) { printf("tid %d old atom%d\n", tc->threadID, old_atom); }
+
         if (tc->threadID == 0 && old_atom < 1) { break; }
         tc->barrier->shuffleLock();
-
 
 
         IntermediateVec * pairs = &(tc->shuffleVector->back());
@@ -355,10 +290,6 @@ bool areEqualK2(K2& a, K2& b){
 
     // neither a<b nor b<a means a==b
     return !((a<b)||(b<a));
-}
-
-void deleteThreadIndVec(ThreadContext * tc) {
-//    delete (tc->threadsVectors->at(tc->threadID));
 }
 
 void exitFramework(ThreadContext * tc) {
