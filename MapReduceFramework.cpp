@@ -136,6 +136,9 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 }
 
 ////===============================  Helper Functions ==============================================
+bool compareKeys(const IntermediatePair& lhs, const IntermediatePair& rhs) {
+    return (*lhs.first) < (*rhs.first);
+}
 
 void * threadFlow(void * arg) {
     auto tc = (ThreadContext *) arg;
@@ -161,7 +164,7 @@ void * threadFlow(void * arg) {
     //// Sort phase
     if (!tc->threadsVectors->at(tc->threadID).empty()) {
         std::sort(tc->threadsVectors->at(tc->threadID).begin(),
-                  tc->threadsVectors->at(tc->threadID).end());
+                  tc->threadsVectors->at(tc->threadID).end(), compareKeys);
     }
 
     // setting thread to wait at barrier.
@@ -184,7 +187,7 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
         bool allEmptySoFar = true;
         K2 *curMax = {};
         // iterate through thread's vectors, and find max at back
-        for (unsigned int i = 0; i < multiThreadLevel ; ++i) {
+        for (int i = 0; i < multiThreadLevel ; ++i) {
             //ensure not empty
             if (!tc->threadsVectors->at(i).empty()) {
                 K2 *thisKey = tc->threadsVectors->at(i).back().first;
@@ -207,7 +210,7 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
         IntermediateVec curKeyVec(0);
         while(true) {
             // iterate through thread's vectors
-            for (unsigned int i = 0; i < multiThreadLevel; ++i) {
+            for (int i = 0; i < multiThreadLevel; ++i) {
                 //ensure not empty
                 if (!tc->threadsVectors->at(i).empty()) {
                   bool mightHaveMoreMax;
