@@ -128,7 +128,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
         bool allEmptySoFar = true;
         K2 *curMax = {};
 
-        // iterate through thread's vectors
+        // iterate through thread's vectors, and find max at back
         for (int i = 0; i < multiThreadLevel ; ++i) {
 
             //ensure not empty
@@ -139,7 +139,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
                 if(allEmptySoFar){
                     // take max (back)
                     curMax = thisKey;
-                    allEmptySoFar= false;
+                    allEmptySoFar = false;
 
                 }else if(*curMax<*thisKey){
                     // update max if larger
@@ -149,16 +149,18 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
             }
         }
 
-        // if we have not found a non-empty vector - all have been cleared.
+        // if we have not found a non-empty vector after iterating - all have been cleared.
         if(allEmptySoFar) break;
 
-        bool NoneEqualSoFar = true;
+
         // this is our current key
         curKeyToMake = curMax;
         // make a vector of this key
         IntermediateVec curKeyVec;
 
         while(true) {
+
+            bool NoneEqualSoFar = true;
 
             // iterate through thread's vectors
             for (int i = 0; i < multiThreadLevel; ++i) {
