@@ -112,6 +112,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     shuffle(&threadContexts[0], multiThreadLevel);
 
     // main thread-reduce
+    (*threadContexts[0].atomic_counter) = 0; // init atomic to track output vec part of treduce method
     threadReduce(threadContexts);
 
     // main thread will wait for all other threads to terminate
@@ -131,6 +132,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
 
 void * threadFlow(void * arg) {
     auto tc = (ThreadContext *) arg;
+    if (DEBUG) { printf("tid %d is entering threadFlow\n", tc->threadID); }
 
     //// Map phase
     bool shouldContinueMapping = true;
@@ -167,6 +169,7 @@ void * threadFlow(void * arg) {
 }
 
 void shuffle(ThreadContext * tc, int multiThreadLevel) {
+    if (DEBUG) { printf("tid %d is entering shuffle\n", tc->threadID); }
     while (true){
         // for each key
         K2 *curKeyToMake;
@@ -204,7 +207,7 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
         // this is our current key
         curKeyToMake = curMax;
         // make a vector of this key
-        IntermediateVec curKeyVec;
+        IntermediateVec curKeyVec(0);
 
         while(true) {
 
@@ -223,7 +226,7 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
                         NoneEqualSoFar = false;
 
                         // add it to our vector
-                        curKeyVec.push_back( ( tc->threadsVectors->at(i).back() ) );
+                        curKeyVec.push_back((tc->threadsVectors->at(i).back()));
 
                         // erase it from the vector
                         tc->threadsVectors->at(i).pop_back();
@@ -240,6 +243,7 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
 
                 // feeding shared vector and increasing semaphore.
                 tc->shuffleVector->push_back(curKeyVec); //todo J why zero?
+                (*(tc->atomic_counter))++;  //todo we might need to remove. that depends on reduce design
 
                 sem_post(tc->semaphore_arg);  //todo J why zero?
 
