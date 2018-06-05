@@ -6,9 +6,8 @@ Barrier::Barrier(int numThreads)
     : mutex(PTHREAD_MUTEX_INITIALIZER)
     , cv(PTHREAD_COND_INITIALIZER)
     , shuffleMutex(PTHREAD_MUTEX_INITIALIZER)
-    , shuffleCv(PTHREAD_COND_INITIALIZER)
     , reduceMutex(PTHREAD_MUTEX_INITIALIZER)
-    , reduceCv(PTHREAD_COND_INITIALIZER)
+    , tvMutex(PTHREAD_MUTEX_INITIALIZER)
     , count(0)
     , numThreads(numThreads)
 { }
@@ -29,18 +28,15 @@ Barrier::~Barrier()
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_destroy");
         exit(1);
     }
-    if (pthread_cond_destroy(&shuffleCv) != 0){
-        fprintf(stderr, "[[Barrier]] error on pthread_cond_destroy");
-        exit(1);
-    }
     if (pthread_mutex_destroy(&reduceMutex) != 0) {
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_destroy");
         exit(1);
     }
-    if (pthread_cond_destroy(&reduceCv) != 0){
-        fprintf(stderr, "[[Barrier]] error on pthread_cond_destroy");
+    if (pthread_mutex_destroy(&tvMutex) != 0) {
+        fprintf(stderr, "[[Barrier]] error on pthread_mutex_destroy");
         exit(1);
     }
+
 }
 
 
@@ -73,17 +69,9 @@ void Barrier::shuffleLock() {
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_lock");
         exit(1);
     }
-//    if (pthread_cond_wait(&shuffleCv, &shuffleMutex) != 0){
-//        fprintf(stderr, "[[Barrier]] error on pthread_cond_wait");
-//        exit(1);
-//    }
 }
 
 void Barrier::shuffleUnlock() {
-//    if (pthread_cond_broadcast(&shuffleCv) != 0) {
-//        fprintf(stderr, "[[Barrier]] error on pthread_cond_broadcast");
-//        exit(1);
-//    }
     if (pthread_mutex_unlock(&shuffleMutex) != 0) {
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_unlock");
         exit(1);
@@ -99,11 +87,20 @@ void Barrier::reduceLock() {
 }
 
 void Barrier::reduceUnlock() {
-//    if (pthread_cond_broadcast(&reduceCv) != 0) {
-//        fprintf(stderr, "[[Barrier]] error on pthread_cond_broadcast");
-//        exit(1);
-//    }
     if (pthread_mutex_unlock(&reduceMutex) != 0) {
+        fprintf(stderr, "[[Barrier]] error on pthread_mutex_unlock");
+        exit(1);
+    }
+}
+void Barrier::threadsVecsLock() {
+    if (pthread_mutex_lock(&tvMutex) != 0) {
+        fprintf(stderr, "[[Barrier]] error on pthread_mutex_lock");
+        exit(1);
+    }
+}
+
+void Barrier::threadsVecsUnlock() {
+    if (pthread_mutex_unlock(&tvMutex) != 0) {
         fprintf(stderr, "[[Barrier]] error on pthread_mutex_unlock");
         exit(1);
     }

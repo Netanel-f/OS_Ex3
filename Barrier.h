@@ -13,14 +13,15 @@ public:
     void shuffleUnlock();
     void reduceLock();
 	void reduceUnlock();
+	void threadsVecsLock();
+	void threadsVecsUnlock();
 
 private:
 	pthread_mutex_t mutex;
 	pthread_cond_t cv;
     pthread_mutex_t shuffleMutex;
-    pthread_cond_t shuffleCv;
     pthread_mutex_t reduceMutex;
-	pthread_cond_t reduceCv;
+    pthread_mutex_t tvMutex;
 	int count;
 	int numThreads;
 };
