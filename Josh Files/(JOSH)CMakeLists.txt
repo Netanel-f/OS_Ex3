@@ -10,6 +10,10 @@ add_executable (little_client test_clients/littleClient.cpp
 add_executable (euro_client test_clients/eurovisionClient.cpp
         MapReduceFramework.h MapReduceFramework.cpp MapReduceClient.h Barrier.cpp Barrier.h)
 
+add_executable (sample_client SuppliedFiles/sampleclient/SampleClient.cpp
+        MapReduceFramework.h MapReduceFramework.cpp MapReduceClient.h Barrier.cpp Barrier.h)
+
 TARGET_LINK_LIBRARIES(little_client pthread)
 TARGET_LINK_LIBRARIES(big_client pthread)
+TARGET_LINK_LIBRARIES(euro_client pthread)
 TARGET_LINK_LIBRARIES(euro_client pthread)
