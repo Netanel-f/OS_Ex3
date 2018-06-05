@@ -109,10 +109,11 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     threadFlow(threadContexts);
 
     //// Shuffle phase
+    (*threadContexts[0].atomic_counter) = 0; // init atomic to track output vec part of treduce method
     shuffle(&threadContexts[0], multiThreadLevel);
 
     // main thread-reduce
-    (*threadContexts[0].atomic_counter) = 0; // init atomic to track output vec part of treduce method
+
     threadReduce(threadContexts);
 
     // main thread will wait for all other threads to terminate
@@ -124,8 +125,7 @@ void runMapReduceFramework(const MapReduceClient& client, const InputVec& inputV
     //finish
 
     //todo implement main thread exit? delete object and release memory.
-    exitFramework(threadContexts);
-
+//    exitFramework(threadContexts);
 }
 
 ////===============================  Helper Functions ==============================================
@@ -161,7 +161,7 @@ void * threadFlow(void * arg) {
 
     // if not main thread, wait for semaphore to reduce
     if (tc->threadID != 0) {
-        sem_wait(tc->semaphore_arg);
+//        sem_wait(tc->semaphore_arg);
         threadReduce(tc);
     }
     // main thread (ID==0) continues without waiting to shuffle.
@@ -243,7 +243,8 @@ void shuffle(ThreadContext * tc, int multiThreadLevel) {
 
                 // feeding shared vector and increasing semaphore.
                 tc->shuffleVector->push_back(curKeyVec); //todo J why zero?
-                (*(tc->atomic_counter))++;  //todo we might need to remove. that depends on reduce design
+                int atom_up = (*(tc->atomic_counter))++;  //todo we might need to remove. that depends on reduce design
+                if (DEBUG) { printf("shuffle old_atom is %d\n", atom_up);}
 
                 sem_post(tc->semaphore_arg);  //todo J why zero?
 
@@ -264,7 +265,7 @@ void threadReduce(ThreadContext * tc) {
     //reducing
     bool shouldContinueReducing = true;
     while (shouldContinueReducing) {        //todo check properly
-
+        sem_wait(tc->semaphore_arg);
         unsigned int old_atom = (*(tc->atomic_counter))--;
 
         if (DEBUG) { printf("tid %d old atom%d\n", tc->threadID, old_atom); }
@@ -297,9 +298,11 @@ bool areEqualK2(K2& a, K2& b){
 }
 
 void exitFramework(ThreadContext * tc) {
-    delete (tc->barrier);
-    sem_destroy(tc->semaphore_arg);
-    //todo verify with valgrind
+    if (DEBUG) { printf("exiting framework");};
+//    exit(0);
+//    delete (tc->barrier);
+//    sem_destroy(tc->semaphore_arg);
+//    todo verify with valgrind
 }
 ////=================================  Error Function ==============================================
 
