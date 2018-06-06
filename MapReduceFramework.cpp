@@ -363,12 +363,10 @@ void errCheck(int &returnVal, const std::string &message) {
     if (returnVal == 0) return;
 
     // set prefix
-    std::string prefix = "Library error: call to ";
-
-    std::string suffix = " failed.";
+    std::string prefix = "[[Framework]] error on ";
 
     // print error message with prefix
-    std::cerr << prefix << message << suffix << "\n";
+    std::cerr << prefix << message << "\n";
 
     // exit
     exit(1);  // todo is this what we want for errors? maybe exit framework (pass *tc for access)
