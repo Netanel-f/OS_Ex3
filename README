@@ -3,11 +3,14 @@ Joshua Herskowitz (321658379), Netanel Fayoumi (201209806)
 EX: 3
 
 TODO Tasks:
-- add error check
-- valgrind check for mem-leaks
-- define framework destructors - destroy semaphore, atomic
+- add error check = possibly done
+- Makefile = working on it
+- valgrind check for mem-leaks = need makefile first
+- define framework destructors - destroy semaphore, atomic = not done
+- code style = possibly done
+
+other:
 - maybe we don't need the atomic counter in reduce method. will check.
-- code style
 
 
 FILES:
