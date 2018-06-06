@@ -11,8 +11,8 @@ class Barrier {
   void barrier();
   void shuffleLock();
   void shuffleUnlock();
-  void reduceLock();
-  void reduceUnlock();
+  void reduceLock(); //todo check?
+  void reduceUnlock(); //todo check?
   void threadsVecsLock();
   void threadsVecsUnlock();
 

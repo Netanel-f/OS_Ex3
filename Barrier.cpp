@@ -97,6 +97,7 @@ void Barrier::threadsVecsUnlock() {
  */
 void BarrierErrCheck(int &returnVal, const std::string &message) {
 
+    // if no failure, return
     if (returnVal == 0) return;
 
     // set prefix

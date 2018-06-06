@@ -34,15 +34,24 @@ struct ThreadContext {
 
 //// ============================   forward declarations for helper funcs ==========================
 
+// thread entry point.
 void *threadFlow(void *arg);
-void shuffle(ThreadContext *tc, int multiThreadLevel);
-void threadReduce(ThreadContext *tc);
-bool areEqualK2(K2 &a, K2 &b);
-void errCheck(int &returnVal, const std::string &message);
+
+// main stages
 void map(ThreadContext *tc);
 void sort(ThreadContext *tc);
-void exitFramework(ThreadContext *tc);
+void shuffle(ThreadContext *tc, int multiThreadLevel);
+void reduce(ThreadContext *tc);
+
+// cleanup
+void exitFramework(ThreadContext *tc, sem_t *sem);
+
+// K2 helpers
+bool areEqualK2(K2 &a, K2 &b);
 bool compareKeys(const IntermediatePair &lhs, const IntermediatePair &rhs);
+
+// Success checker
+void errCheck(int &returnVal, const std::string &message);
 
 
 
@@ -138,7 +147,7 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
     }
 
     // main thread should reduce one shuffle is done
-    threadReduce(threadContexts);
+    reduce(threadContexts);
 
 
     // main thread will wait for all other threads to terminate
@@ -146,7 +155,7 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
         // check for error of pthread
         if (DEBUG) { printf("main thread join tid %d \n ", i); }
         retVal = pthread_join(threads[i], nullptr);
-        errCheck(retVal, "sem_post");
+        errCheck(retVal, "pthread_join");
     }
 
     //// -------   Cleanup & Finish -------
@@ -156,8 +165,7 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
                (int) threadContexts->outputVec->size());
     }
 
-    delete sem;
-    exitFramework(threadContexts);
+    exitFramework(threadContexts, sem);
 
 }
 
@@ -186,7 +194,7 @@ void *threadFlow(void *arg) {
 
     // if not main thread, go to reduce (reduce ends and kills thread)
     if (tc->threadID != 0) {
-        threadReduce(tc);
+        reduce(tc);
     }
 
     // the main thread (ID==0) continues (without waiting) to shuffle.
@@ -202,15 +210,22 @@ void shuffle(ThreadContext *tc, int multiThreadLevel) {
     int shufCounter = 0;
     bool continueShuffle = true;
 
-    // Looping to create
+    //// shuffling
+
     while (continueShuffle) {
+
+        //// find max K2
+
+        // flags
         int maxKeyThreadId = -1;
         K2 *key = nullptr;
-        int val = -1; // why is val unused?
+        int val = -1; // todo J why is val unused?
 
-        // Finding the first not empty thread Intermediate Vector.
+        // find the first not empty thread Intermediate Vector.
         for (int i = 0; i < multiThreadLevel; i++) {
             if (DEBUG) { printf("~~~~~nonempty i is %d~~~~\n", i); }
+
+            // take the back of this vector.
             if (!tc->threadsVectors->at(i).empty()) {
                 maxKeyThreadId = i;
                 key = tc->threadsVectors->at(i).back().first;
@@ -219,21 +234,27 @@ void shuffle(ThreadContext *tc, int multiThreadLevel) {
             //todo N:check if code can reach to the point of the last thread and it's empty.
         }
 
-        // if didn't find non-empty thread Vector
+        // if we didn't find non-empty thread Vector, we are done
         if (maxKeyThreadId == -1) {
-            continueShuffle = false; //todo J check necessary
+            continueShuffle = false; //todo J is this necessary
             break;
         }
 
         // Finding the max key
         for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
+
+            // for each non-empty vector
             if (tc->threadsVectors->at(i).empty()) { continue; }
-            if (DEBUG) { printf("~~~~~max loop i is %d~~~~\n", i); }
-            K2 *other = tc->threadsVectors->at(i).back().first;
-            bool a = key < tc->threadsVectors->at(i).back().first;
-            bool b = key < other;
-            bool c = *key < *other;
-            if (DEBUG) { printf("a:%d b:%d c:%d", a, b, c); }
+
+            if (DEBUG) {
+                printf("~~~~~max loop i is %d~~~~\n", i);
+                K2 *other = tc->threadsVectors->at(i).back().first;
+                bool a = key < tc->threadsVectors->at(i).back().first;
+                bool b = key < other;
+                bool c = *key < *other;
+                printf("a:%d b:%d c:%d", a, b, c);
+            }
+            // replace max if this key is greater.
             if (!tc->threadsVectors->at(i).empty()
                 && (*key) < *(tc->threadsVectors->at(i).back().first)) {
                 maxKeyThreadId = i;
@@ -241,13 +262,17 @@ void shuffle(ThreadContext *tc, int multiThreadLevel) {
             }
         }
 
+        //// create a vector from all the K2 s.t. K2=max
         IntermediateVec currentKeyIndVec(0);
-        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
-            // Popping matching k2pairs from all thread's vectors.
 
+        // for all vectors
+        for (int i = maxKeyThreadId; i < multiThreadLevel; i++) {
+
+            // while this thread's vector is not empty
             while (!tc->threadsVectors->at(i).empty() &&
                 areEqualK2(*(tc->threadsVectors->at(i).back().first), *key)) {
-                // Popping matching k2 pairs of current thread with tid i
+
+                // take back iff the back is equal to max
                 currentKeyIndVec.push_back((tc->threadsVectors->at(i).back()));
                 tc->barrier->threadsVecsLock();
                 tc->threadsVectors->at(i).pop_back();
@@ -255,16 +280,23 @@ void shuffle(ThreadContext *tc, int multiThreadLevel) {
             }
         }
 
-        tc->barrier->shuffleLock();   // blocking the mutex
+        // blocking the mutex
+        tc->barrier->shuffleLock();
+
+        //// send vector to a thread, and wake using semaphore
 
         // feeding shared vector and increasing semaphore.
         tc->shuffleVector->emplace_back(currentKeyIndVec);
         int ret = (*(tc->atomic_counter))++; // todo J why is ret unused?
         shufCounter++;
-        sem_post(tc->semaphore_arg);
+        int retVal = sem_post(tc->semaphore_arg);
+        errCheck(retVal, "sem_post");
         tc->barrier->shuffleUnlock();
     }
+
     if (DEBUG) { printf("size of shuffle vector is %d \n", shufCounter); }
+
+    // notify threads shuffling has ended - threads should now move to reduce if semaphore is zero.
     *tc->stillShuffling = false;
 }
 
@@ -301,9 +333,10 @@ void sort(ThreadContext *tc) {
 /**
  * Performs reduce within a thread context.
  */
-void threadReduce(ThreadContext *tc) {
+void reduce(ThreadContext *tc) {
     while (true) {
 
+        // call wait
         int retVal = sem_wait(tc->semaphore_arg);
         errCheck(retVal, "sem_wait");
 
@@ -339,7 +372,6 @@ bool compareKeys(const IntermediatePair &lhs, const IntermediatePair &rhs) {
  * Simple Equality checker for K2 keys.
  */
 bool areEqualK2(K2 &a, K2 &b) {
-
     // neither a<b nor b<a means a==b
     return !((a < b) || (b < a));
 }
@@ -347,11 +379,19 @@ bool areEqualK2(K2 &a, K2 &b) {
 /**
  * Cleans up framework before exiting
  */
-void exitFramework(ThreadContext *tc) {
+void exitFramework(ThreadContext *tc, sem_t *sem) {
+
+    int retVal = sem_destroy(tc->semaphore_arg);
+    errCheck(retVal, "sem_destroy");
+
+    delete sem;
+
     if (DEBUG) { printf("exiting framework"); };
-    //delete (tc->barrier);
-    sem_destroy(tc->semaphore_arg);
-//    todo implement & verify momory leaks with valgrind
+
+    //delete (tc->barrier); // todo J this fails for some reason
+    // todo J (later) - because new was not called
+
+    //    todo implement & verify momory leaks with valgrind
 }
 
 ////=================================  Error Function ==============================================
@@ -361,6 +401,7 @@ void exitFramework(ThreadContext *tc) {
  */
 void errCheck(int &returnVal, const std::string &message) {
 
+    // if no failure, return
     if (returnVal == 0) return;
 
     // set prefix
@@ -370,7 +411,8 @@ void errCheck(int &returnVal, const std::string &message) {
     std::cerr << prefix << message << "\n";
 
     // exit
-    exit(1);  // todo is this what we want for errors? maybe exit framework (pass *tc for access)
+    exit(1);  // todo J is this what we want for errors? maybe exit framework (pass *tc for access)
+    // todo J is this what we want for errors? maybe exit framework (pass *tc for access)
 
 }
 
