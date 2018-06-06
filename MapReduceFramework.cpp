@@ -42,9 +42,7 @@ void errCheck(int &returnVal, const std::string &message);
 void map(ThreadContext *tc);
 void sort(ThreadContext *tc);
 void exitFramework(ThreadContext *tc);
-void deleteThreadIndVec(ThreadContext *tc);
 bool compareKeys(const IntermediatePair &lhs, const IntermediatePair &rhs);
-//void errorPrint(ThreadContext* tc);
 
 
 
