@@ -2,6 +2,14 @@ jherskow, netanelf
 Joshua Herskowitz (321658379), Netanel Fayoumi (201209806)
 EX: 3
 
+TODO Tasks:
+add error check
+valgrind check for mem-leaks
+define framework destructors - destroy semaphore, atomic
+
+code style
+
+
 FILES:
 
 file.h        -- Description.
