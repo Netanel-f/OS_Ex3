@@ -3,18 +3,20 @@ Joshua Herskowitz (321658379), Netanel Fayoumi (201209806)
 EX: 3
 
 TODO Tasks:
-add error check
-valgrind check for mem-leaks
-define framework destructors - destroy semaphore, atomic
-maybe we don't need the atomic counter in reduce method. will check.
-
-code style
+- add error check
+- valgrind check for mem-leaks
+- define framework destructors - destroy semaphore, atomic
+- maybe we don't need the atomic counter in reduce method. will check.
+- code style
 
 
 FILES:
 
-file.h        -- Description.
-file.cpp      -- Description.
+MapReduceFramework.cpp   -- Implementation of framework.
+
+Barrier.h                -- Header file for barrier class.
+Barrier.cpp              -- Barrier helper class implementation.
+
 
 Makefile        -- An awesome makefile.
 README          -- This Pulitzer-worthy file.
