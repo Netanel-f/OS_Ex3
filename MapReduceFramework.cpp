@@ -11,7 +11,7 @@
 
 
 //// ============================   defines and const ==============================================
-#define DEBUG true
+#define DEBUG false
 //todo delete define
 
 //// ===========================   typedefs & structs ==============================================

@@ -82,6 +82,7 @@ int main(int argc, char** argv)
 
     runMapReduceFramework(client, inputVec, outputVec, 50);
 
+
     for (OutputPair& pair: outputVec) {
         int key = ((const Kint*)pair.first)->key;
         ulong sum = ((const Vsum*)pair.second)->sum;
