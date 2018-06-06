@@ -10,7 +10,7 @@
 
 
 //// ============================   defines and const ==============================================
-#define DEBUG true
+#define DEBUG false
 //todo delete define
 
 //// ===========================   typedefs & structs ==============================================
@@ -156,6 +156,7 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
                (int) threadContexts->outputVec->size());
     }
 
+    delete sem;
     exitFramework(threadContexts);
 
 }
@@ -205,7 +206,7 @@ void shuffle(ThreadContext *tc, int multiThreadLevel) {
     while (continueShuffle) {
         int maxKeyThreadId = -1;
         K2 *key = nullptr;
-        int val = -1;
+        int val = -1; // why is val unused?
 
         // Finding the first not empty thread Intermediate Vector.
         for (int i = 0; i < multiThreadLevel; i++) {
@@ -348,8 +349,8 @@ bool areEqualK2(K2 &a, K2 &b) {
  */
 void exitFramework(ThreadContext *tc) {
     if (DEBUG) { printf("exiting framework"); };
-//    delete (tc->barrier);
-//    sem_destroy(tc->semaphore_arg);
+    //delete (tc->barrier);
+    sem_destroy(tc->semaphore_arg);
 //    todo implement & verify momory leaks with valgrind
 }
 
