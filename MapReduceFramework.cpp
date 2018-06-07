@@ -10,7 +10,7 @@
 
 
 //// ============================   defines and const ==============================================
-#define DEBUG true //todo delete define
+
 
 //// ===========================   typedefs & structs ==============================================
 
@@ -133,11 +133,7 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
 
     //// -------   Shuffle & Reduce -------
 
-    // init atomic to track output vec part of the reduce method
-    (*threadContexts[0].atomic_counter) = 0;
-
-    // start shuffling
-    shuffle(&threadContexts[0], numOfThreads);  //todo check if needed
+    shuffle(&threadContexts[0], numOfThreads);
 
     // main thread should reduce one shuffle is done
     for (int i = 0; i < multiThreadLevel; i++) {
@@ -156,9 +152,6 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
     }
 
     //// -------   Cleanup & Finish -------
-
-    if (DEBUG) { printf("size of output vector is %d \n", (int) threadContexts->outputVec->size());}
-
     exitFramework(threadContexts);
 
 }
@@ -170,11 +163,8 @@ void runMapReduceFramework(const MapReduceClient &client, const InputVec &inputV
  * @param arg - a pointer to a ThreadContext struct.
  * @return null.
  */
-void * workerThreadFlow(void * arg){
-
+void * workerThreadFlow(void * arg) {
     auto tc = (ThreadContext *) arg;
-    if (DEBUG) { printf("tid %lu is entering workerThreadFlow\n", tc->threadID); }
-
     mapAndSort(tc);
     reduce(tc);
     return nullptr;
@@ -184,7 +174,7 @@ void * workerThreadFlow(void * arg){
  * Handles the map and sort phases for any thread.
  * @param tc a pointer to a ThreadContext struct.
  */
-void mapAndSort(ThreadContext * tc){
+void mapAndSort(ThreadContext * tc) {
 
     // Map phase
     bool shouldContinueMapping = true;
@@ -220,7 +210,11 @@ void mapAndSort(ThreadContext * tc){
  */
 void shuffle(ThreadContext *tc, unsigned long numOfThreads) { //todo style
 
-    while (true) {  // this while will keep loop until we have shuffled all pairs.
+    // init atomic to track output vec part of the reduce method
+    (*tc->atomic_counter) = 0;
+
+    // this while will keep loop until we have shuffled all pairs.
+    while (true) {      //everyday im shufflin'
 
         // flags
         unsigned long maxKeyThreadId = 0;
@@ -228,7 +222,6 @@ void shuffle(ThreadContext *tc, unsigned long numOfThreads) { //todo style
 
         // find the first not empty thread Intermediate Vector.
         for (unsigned long i = 0; i < numOfThreads; i++) {
-            if (DEBUG) { printf("~~~~~nonempty i is %lu~~~~\n", i); }
 
             // take the back of this vector.
             if (!tc->threadsVectors->at(i).empty()) {
@@ -248,15 +241,6 @@ void shuffle(ThreadContext *tc, unsigned long numOfThreads) { //todo style
 
             // for each non-empty vector
             if (tc->threadsVectors->at(i).empty()) { continue; }
-
-            if (DEBUG) {
-                printf("~~~~~max loop i is %lu~~~~\n", i);
-                K2 *other = tc->threadsVectors->at(i).back().first;
-                bool a = key < tc->threadsVectors->at(i).back().first;
-                bool b = key < other;
-                bool c = *key < *other;
-                printf("a:%d b:%d c:%d", a, b, c);
-            }
 
             // replace max if this key is greater.
             if (!tc->threadsVectors->at(i).empty() &&
@@ -299,8 +283,6 @@ void shuffle(ThreadContext *tc, unsigned long numOfThreads) { //todo style
         tc->barrier->mutex_unlock(SHUFFLE_MUTEX);
     }
 
-//    if (DEBUG) { printf("size of shuffle vector is %d \n", (*(tc->atomic_counter))); }
-
     // notify threads shuffling has ended - threads should now move to reduce if semaphore is zero.
     *tc->stillShuffling = false;
 }
@@ -317,18 +299,14 @@ void reduce(ThreadContext *tc) {
         errCheck(sysRetVal, "sem_wait");
 
         int atom = (*(tc->atomic_counter))--;
-//        tc->barrier->mutex_lock(SHUFFLE_MUTEX);
 
         if (atom <= 0) {
-//            tc->barrier->mutex_unlock(SHUFFLE_MUTEX);
             break;
         }
 
         //taking new vector from shuffle.
         tc->barrier->mutex_lock(SHUFFLE_MUTEX);
         IntermediateVec pairs = (tc->shuffleVector->back());
-//        IntermediateVec *pairs = &(tc->shuffleVector->back());
-//        tc->client->reduce(pairs, tc);  //todo seperated from shuffle lock for performance
 
         tc->shuffleVector->pop_back();
         tc->barrier->mutex_unlock(SHUFFLE_MUTEX);
@@ -364,8 +342,6 @@ void exitFramework(ThreadContext *tc) {
 
     int retVal = sem_destroy(tc->semaphore_arg);
     errCheck(retVal, "sem_destroy");
-
-    if (DEBUG) { printf("exiting framework"); };
 }
 
 ////=================================  Error Function ==============================================

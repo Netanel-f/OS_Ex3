@@ -15,13 +15,6 @@ class Barrier {
     void barrier();
     void mutex_lock(int lockID);
     void mutex_unlock(int lockID);
-//    void BarrierErrCheck(const std::string &message);
-//    void shuffleLock();
-//    void shuffleUnlock();
-//    void reduceLock(); //todo check?
-//    void reduceUnlock(); //todo check?
-//    void threadsVecsLock();
-//    void threadsVecsUnlock();
 
  private:
   pthread_mutex_t mutex;

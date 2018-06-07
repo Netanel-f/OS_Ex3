@@ -72,29 +72,6 @@ void Barrier::mutex_unlock(int lockID) {
     }
 }
 
-//void Barrier::shuffleLock() {
-//    if (pthread_mutex_lock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
-//}
-
-//void Barrier::shuffleUnlock() {
-//    if (pthread_mutex_unlock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_unlock");}
-//}
-
-//void Barrier::reduceLock() {
-//    if (pthread_mutex_lock(&reduceMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
-//}
-
-//void Barrier::reduceUnlock() {
-//    if (pthread_mutex_unlock(&reduceMutex) != 0) {BarrierErrCheck("pthread_mutex_unlock");}
-//}
-//void Barrier::threadsVecsLock() {
-//    if (pthread_mutex_lock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
-//}
-
-//void Barrier::threadsVecsUnlock() {
-//    if (pthread_mutex_unlock(&tvMutex) != 0){ BarrierErrCheck("pthread_mutex_unlock"); }
-//}
-
 ////=================================  Error Function ==============================================
 
 /**

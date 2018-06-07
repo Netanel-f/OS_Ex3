@@ -9,12 +9,14 @@ TODO Tasks:
 - README = done
 - define framework destructors - destroy semaphore, atomic = maybe done
                    //todo J: ^ im not sure if i did enough for this ^
+                   //todo N: I think we have done this well.
+
 - code style = done
-- unused variables check = not done  //todo J: plz do
-- getting rid of all to-do/debug = not done  //todo J: plz do
+- unused variables check = done
+- getting rid of all to-do/debug = done
 
 other:
-- maybe we don't need the atomic counter in reduce method. will check.
+- maybe we don't need the atomic counter in reduce method. will check. //todo N: verified & is needed.
 
 
 FILES:
