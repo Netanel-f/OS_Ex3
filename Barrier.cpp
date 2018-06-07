@@ -1,104 +1,106 @@
 #include "Barrier.h"
-#include <cstdlib>
 #include <cstdio>
 #include <iostream>
+
 
 Barrier::Barrier(int numThreads)
     : mutex(PTHREAD_MUTEX_INITIALIZER),
       cv(PTHREAD_COND_INITIALIZER),
-      shuffleMutex(PTHREAD_MUTEX_INITIALIZER),
+      shuffMutex(PTHREAD_MUTEX_INITIALIZER),
       reduceMutex(PTHREAD_MUTEX_INITIALIZER),
       tvMutex(PTHREAD_MUTEX_INITIALIZER),
       count(0),
       numThreads(numThreads) {}
 
-//todo maybe can make this all at one array and avoid duplicate code.
-
-// forward declaration.
-void BarrierErrCheck(int &returnVal, const std::string &message);
+    void BarrierErrCheck(const std::string &message);
 
 Barrier::~Barrier() {
-    int retVal;
+    if (pthread_mutex_destroy(&mutex) != 0) { BarrierErrCheck("pthread_mutex_destroy");}
 
-    retVal = pthread_mutex_destroy(&mutex);
-    BarrierErrCheck(retVal, "pthread_mutex_destroy");
+    if (pthread_cond_destroy(&cv) != 0) { BarrierErrCheck("pthread_cond_destroy");}
 
-    retVal = pthread_cond_destroy(&cv);
-    BarrierErrCheck(retVal, "pthread_cond_destroy");
+    if (pthread_mutex_destroy(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_destroy");}
 
-    retVal = pthread_mutex_destroy(&shuffleMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_destroy");
+    if (pthread_mutex_destroy(&reduceMutex) != 0) { BarrierErrCheck("pthread_mutex_destroy");}
 
-    retVal = pthread_mutex_destroy(&reduceMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_destroy");
-
-    retVal = pthread_mutex_destroy(&tvMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_destroy");
+    if (pthread_mutex_destroy(&tvMutex) != 0) { BarrierErrCheck("pthread_mutex_destroy"); }
 }
 
 void Barrier::barrier() {
-    int retVal;
-
-    retVal = pthread_mutex_lock(&mutex);
-    BarrierErrCheck(retVal, "pthread_mutex_lock");
+    if (pthread_mutex_lock(&mutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
 
     if (++count < numThreads) {
-        retVal = pthread_cond_wait(&cv, &mutex);
-        BarrierErrCheck(retVal, "pthread_cond_wait");
+        if (pthread_cond_wait(&cv, &mutex) != 0) { BarrierErrCheck("pthread_cond_wait"); }
     } else {
         count = 0;
-        retVal = pthread_cond_broadcast(&cv);
-        BarrierErrCheck(retVal, "pthread_cond_broadcast"); //todo change from broadcast to signal??
+        if (pthread_cond_broadcast(&cv) != 0) { BarrierErrCheck("pthread_cond_broadcast"); }
     }
-    retVal = pthread_mutex_unlock(&mutex);
-    BarrierErrCheck(retVal, "pthread_mutex_unlock");
+
+    if (pthread_mutex_unlock(&mutex) != 0) { BarrierErrCheck("pthread_mutex_unlock"); }
 }
 
-void Barrier::shuffleLock() {
-    int retVal;
-    retVal = pthread_mutex_lock(&shuffleMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_lock");
+void Barrier::mutex_lock(int lockID) {
+    switch (lockID) {
+        case THREADS_MUTEX:
+            if (pthread_mutex_lock(&tvMutex) != 0){ BarrierErrCheck("pthread_mutex_lock"); }
+            break;
+        case SHUFFLE_MUTEX:
+            if (pthread_mutex_lock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
+            break;
+        case REDUCE_MUTEX:
+            if (pthread_mutex_lock(&reduceMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
+            break;
+        default:
+            BarrierErrCheck("Requested to lock unknown mutex");
+
+    }
 }
 
-void Barrier::shuffleUnlock() {
-    int retVal;
-    retVal = pthread_mutex_unlock(&shuffleMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_unlock");
+void Barrier::mutex_unlock(int lockID) {
+    switch (lockID) {
+        case THREADS_MUTEX:
+            if (pthread_mutex_unlock(&tvMutex) != 0){ BarrierErrCheck("pthread_mutex_unlock"); }
+            break;
+        case SHUFFLE_MUTEX:
+            if (pthread_mutex_unlock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_unlock"); }
+            break;
+        case REDUCE_MUTEX:
+            if (pthread_mutex_unlock(&reduceMutex) != 0) { BarrierErrCheck("pthread_mutex_unlock"); }
+            break;
+        default: BarrierErrCheck("Requested to unlock unknown mutex");
+
+    }
 }
 
-//todo del those ? or separate shuffle and lock mutex
-void Barrier::reduceLock() {
-    int retVal;
-    retVal = pthread_mutex_lock(&reduceMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_lock");
-}
+//void Barrier::shuffleLock() {
+//    if (pthread_mutex_lock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
+//}
 
-void Barrier::reduceUnlock() {
-    int retVal;
-    retVal = pthread_mutex_unlock(&reduceMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_unlock");
-}
-void Barrier::threadsVecsLock() {
-    int retVal;
-    retVal = pthread_mutex_lock(&tvMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_lock");
-}
+//void Barrier::shuffleUnlock() {
+//    if (pthread_mutex_unlock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_unlock");}
+//}
 
-void Barrier::threadsVecsUnlock() {
-    int retVal;
-    retVal = pthread_mutex_unlock(&tvMutex);
-    BarrierErrCheck(retVal, "pthread_mutex_unlock");
-}
+//void Barrier::reduceLock() {
+//    if (pthread_mutex_lock(&reduceMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
+//}
+
+//void Barrier::reduceUnlock() {
+//    if (pthread_mutex_unlock(&reduceMutex) != 0) {BarrierErrCheck("pthread_mutex_unlock");}
+//}
+//void Barrier::threadsVecsLock() {
+//    if (pthread_mutex_lock(&shuffMutex) != 0) { BarrierErrCheck("pthread_mutex_lock"); }
+//}
+
+//void Barrier::threadsVecsUnlock() {
+//    if (pthread_mutex_unlock(&tvMutex) != 0){ BarrierErrCheck("pthread_mutex_unlock"); }
+//}
 
 ////=================================  Error Function ==============================================
 
 /**
  * Checks for failure of library functions, and handling them when they occur.
  */
-void BarrierErrCheck(int &returnVal, const std::string &message) {
-
-    // if no failure, return
-    if (returnVal == 0) return;
+void BarrierErrCheck(const std::string &message) {
 
     // set prefix
     std::string prefix = "[[Barrier]] error on ";

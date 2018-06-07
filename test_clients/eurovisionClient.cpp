@@ -143,9 +143,9 @@ int main(int argc, char **argv) {
     OutputVec outputVec;
 
     // TODO - enter your path to "new_clients/points_awarded.in"
-    process_data("/cs/usr/jherskow/safe/OS_Ex3/test_clients/points_awarded.in", &inputVec);
+    process_data("/cs/usr/netanelf/safe/OS/OS_Ex3/test_clients/points_awarded.in", &inputVec);
 
-    runMapReduceFramework(client, inputVec, outputVec, 1);
+    runMapReduceFramework(client, inputVec, outputVec, 40);
 
     printf("Total Eurovision wins 1975-2016:\n");
     for (OutputPair& pair: outputVec) {
