@@ -2,21 +2,6 @@ jherskow, netanelf
 Joshua Herskowitz (321658379), Netanel Fayoumi (201209806)
 EX: 3
 
-TODO Tasks:
-- add error check = done //todo N: done
-- Makefile = done
-- valgrind check for mem-leaks = done
-- README = done
-- define framework destructors - destroy semaphore, atomic = maybe done
-                   //todo N: done
-
-- code style = done
-- unused variables check = done
-- getting rid of all to-do/debug = done
-
-other:
-- maybe we don't need the atomic counter in reduce method. will check. //todo N: verified & is needed.
-
 
 FILES:
 
